@@ -2,6 +2,7 @@
   "dependencies": {
     "com.unity.entities": "1.3.14",
     "com.unity.entities.graphics": "1.3.2",
+    "com.unity.ide.rider": "3.0.38",
     "com.unity.multiplayer.center": "1.0.0",
     "com.unity.render-pipelines.universal": "17.0.4",
     "com.unity.modules.accessibility": "1.0.0",

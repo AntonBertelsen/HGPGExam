@@ -551,3 +551,10 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/unity,rider,visualstudio
+
+
+
+
+# extra
+.idea/
+.DS_store

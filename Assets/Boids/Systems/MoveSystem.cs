@@ -1,6 +1,7 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Transforms;
+using UnityEngine;
 
 [BurstCompile]
 public partial struct MoveSystem : ISystem
@@ -26,5 +27,6 @@ public partial struct MoveJob : IJobEntity
     public void Execute(ref LocalTransform transform, in Velocity velocity)
     {
         transform.Position += velocity.Value * DeltaTime;
+        transform.Rotation = Quaternion.LookRotation(velocity.Value);
     }
 }

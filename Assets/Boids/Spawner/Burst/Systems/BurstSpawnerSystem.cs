@@ -21,7 +21,7 @@ public partial struct BurstSpawnerSystem : ISystem
     {
         // The query now iterates over all entities that have a spawner component and a transform.
         // We use RefRO (Read-Only) because we are not changing the spawner's data.
-        foreach (var (spawner, transform) in 
+        foreach (var (spawner, spawnerTransform) in 
             SystemAPI.Query<RefRO<BurstSpawnerComponent>, RefRO<LocalTransform>>())
         {
             // This is the key to high-performance burst spawning.
@@ -33,7 +33,7 @@ public partial struct BurstSpawnerSystem : ISystem
             {
                 // Set the unique position, using the spawner's position as the center
                 var newTransform = SystemAPI.GetComponentRW<LocalTransform>(entity);
-                newTransform.ValueRW.Position = transform.ValueRO.Position;
+                newTransform.ValueRW.Position = spawnerTransform.ValueRO.Position;
 
                 // Set unique velocity
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(entity);
