@@ -13,7 +13,7 @@ public partial struct GizmoSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         _boidQuery = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<BoidTag, LocalTransform, Velocity>()
+            .WithAll<BoidTag, LocalTransform, Velocity, ObstacleAvoidance>()
             .Build(ref state);
     }
 
@@ -26,13 +26,28 @@ public partial struct GizmoSystem : ISystem
     {
         var transforms = _boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var velocities = _boidQuery.ToComponentDataArray<Velocity>(Allocator.TempJob);
-
-        foreach (var (transform, velocity) in transforms.Zip(velocities, (t, v) => (t, v)))
+        var avoidances = _boidQuery.ToComponentDataArray<ObstacleAvoidance>(Allocator.TempJob);
+        
+        foreach (var (transform, velocity, avoidance) in transforms
+                     .Zip(velocities, (t, v) => (t, v))
+                     .Zip(avoidances, (z, a) => (z.t, z.v, a)))
         {
-            foreach (var direction in BoidHelper.Directions)
+            Gizmos.color = Color.red;
+            for (var i = 0; i < avoidance.DirectionIndex; i++)
             {
-                Gizmos.DrawRay(transform.Position, Vector3.Normalize(direction));
+                Gizmos.DrawRay(transform.Position, BoidHelper.RelativeDirection(transform.Rotation, i));
             }
+            Gizmos.color = Color.green;
+            Gizmos.DrawRay(transform.Position, BoidHelper.RelativeDirection(transform.Rotation, avoidance.DirectionIndex));
+            
+            Gizmos.color = Color.gray;
+            for (var i = avoidance.DirectionIndex + 1; i < BoidHelper.NumViewDirections; i++)
+            {
+                Gizmos.DrawRay(transform.Position, BoidHelper.RelativeDirection(transform.Rotation, i));
+            }
+            
+            Gizmos.color = Color.blue;
+            Gizmos.DrawRay(transform.Position, velocity.Value);
         }
 
         transforms.Dispose();

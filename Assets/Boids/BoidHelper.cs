@@ -1,17 +1,17 @@
 // Shamelessly copied with modifications from https://github.com/SebLague/Boids/blob/master/Assets/Scripts/BoidHelper.cs
 
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 
 public static class BoidHelper
 {
-    private const int NumViewDirections = 300;
-    public static readonly NativeArray<Vector3> Directions;
+    public const int NumViewDirections = 300;
+    public static readonly NativeArray<float3> Directions = new(NumViewDirections, Allocator.Persistent);
 
     static BoidHelper()
     {
-        Directions = new NativeArray<Vector3>(NumViewDirections, Allocator.Persistent);
-
         var goldenRatio = (1 + Mathf.Sqrt(5)) / 2;
         var angleIncrement = Mathf.PI * 2 * goldenRatio;
 
@@ -24,7 +24,14 @@ public static class BoidHelper
             var x = Mathf.Sin(inclination) * Mathf.Cos(azimuth);
             var y = Mathf.Sin(inclination) * Mathf.Sin(azimuth);
             var z = Mathf.Cos(inclination);
-            Directions[i] = new Vector3(x, y, z);
+            Directions[i] = new float3(x, y, z);
         }
     }
+
+    public static float3 RelativeDirection(quaternion rotation, int index) => BoidHelperMath.RelativeDirection(rotation, Directions[index]);
+}
+
+public static class BoidHelperMath
+{
+    public static float3 RelativeDirection(quaternion rotation, float3 direction) => math.mul(rotation, direction);
 }
