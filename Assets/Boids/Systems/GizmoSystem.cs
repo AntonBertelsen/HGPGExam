@@ -29,7 +29,10 @@ public partial struct GizmoSystem : ISystem
 
         foreach (var (transform, velocity) in transforms.Zip(velocities, (t, v) => (t, v)))
         {
-            Gizmos.DrawRay(transform.Position, Vector3.Normalize(velocity.Value));
+            foreach (var direction in BoidHelper.Directions)
+            {
+                Gizmos.DrawRay(transform.Position, Vector3.Normalize(direction));
+            }
         }
     }
 }
