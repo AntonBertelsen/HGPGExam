@@ -34,5 +34,8 @@ public partial struct GizmoSystem : ISystem
                 Gizmos.DrawRay(transform.Position, Vector3.Normalize(direction));
             }
         }
+
+        transforms.Dispose();
+        velocities.Dispose();
     }
 }
