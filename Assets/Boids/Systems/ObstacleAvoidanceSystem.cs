@@ -8,11 +8,12 @@ using Unity.Transforms;
 public partial struct ObstacleAvoidanceSystem : ISystem
 {
     private NativeArray<float3> _directions;
-    
+
     // Can't burst compile because BoidHelper has a static constructor using NativeArray
     // [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
+        state.RequireForUpdate<BoidSettings>();
         state.RequireForUpdate<PhysicsWorldSingleton>();
         _directions = BoidHelper.Directions;
     }
@@ -22,8 +23,9 @@ public partial struct ObstacleAvoidanceSystem : ISystem
     {
         var job = new ObstacleAvoidanceJob
         {
-            physicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>(),
-            directions = _directions,
+            Config = SystemAPI.GetSingleton<BoidSettings>(),
+            PhysicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>(),
+            Directions = _directions,
         };
         state.Dependency = job.ScheduleParallel(state.Dependency);
     }
@@ -32,9 +34,11 @@ public partial struct ObstacleAvoidanceSystem : ISystem
 [BurstCompile]
 public partial struct ObstacleAvoidanceJob : IJobEntity
 {
-    [ReadOnly] public PhysicsWorldSingleton physicsWorld;
-    [ReadOnly] public NativeArray<float3> directions;
-    
+    [ReadOnly] public BoidSettings Config;
+
+    [ReadOnly] public PhysicsWorldSingleton PhysicsWorld;
+    [ReadOnly] public NativeArray<float3> Directions;
+
     private void Execute(in LocalTransform localTransform, ref ObstacleAvoidance obstacleAvoidance)
     {
         for (var i = 0; i < BoidHelper.NumViewDirections; i++)
@@ -42,12 +46,14 @@ public partial struct ObstacleAvoidanceJob : IJobEntity
             var raycastInput = new RaycastInput
             {
                 Start = localTransform.Position,
-                End = BoidHelperMath.RelativeDirection(localTransform.Rotation, directions[i]) + localTransform.Position,
+                End = BoidHelperMath.RelativeDirection(localTransform.Rotation, Directions[i]) *
+                    Config.AvoidanceRadius + localTransform.Position,
+                // TODO: Exclude other boids from collision
                 Filter = CollisionFilter.Default,
             };
 
-            if (physicsWorld.CastRay(raycastInput)) continue;
-            
+            if (PhysicsWorld.CastRay(raycastInput)) continue;
+
             // We found a direction with no obstacle
             obstacleAvoidance.DirectionIndex = i;
             return;
