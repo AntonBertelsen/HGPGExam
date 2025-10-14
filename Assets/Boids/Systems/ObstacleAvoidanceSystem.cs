@@ -48,7 +48,6 @@ public partial struct ObstacleAvoidanceJob : IJobEntity
                 Start = localTransform.Position,
                 End = BoidHelperMath.RelativeDirection(localTransform.Rotation, Directions[i]) *
                     Config.AvoidanceRadius + localTransform.Position,
-                // TODO: Exclude other boids from collision
                 Filter = CollisionFilter.Default,
             };
 
