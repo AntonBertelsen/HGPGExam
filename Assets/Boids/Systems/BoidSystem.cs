@@ -127,19 +127,6 @@ public partial struct BoidJob : IJobEntity
                 Config.AvoidanceWeight;
         }
 
-        /*
-         velocity += acceleration * Time.deltaTime;
-           float speed = velocity.magnitude;
-           Vector3 dir = velocity / speed;
-           speed = Mathf.Clamp (speed, settings.minSpeed, settings.maxSpeed);
-           velocity = dir * speed;
-
-           cachedTransform.position += velocity * Time.deltaTime;
-           cachedTransform.forward = dir;
-           position = cachedTransform.position;
-           forward = dir;
-         */
-
         currentVelocity.Value += acceleration;
 
         // Limit the final speed
