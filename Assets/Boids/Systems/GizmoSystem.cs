@@ -33,14 +33,17 @@ public partial struct GizmoSystem : ISystem
 
     private void DrawBoidGizmos()
     {
+        var entities = _boidQuery.ToEntityArray(Allocator.TempJob);
         var transforms = _boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var velocities = _boidQuery.ToComponentDataArray<Velocity>(Allocator.TempJob);
         var avoidances = _boidQuery.ToComponentDataArray<ObstacleAvoidance>(Allocator.TempJob);
 
-        foreach (var (transform, velocity, avoidance) in transforms
-                     .Zip(velocities, (t, v) => (t, v))
-                     .Zip(avoidances, (z, a) => (z.t, z.v, a)))
+        for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
         {
+            var transform = transforms[entityIndex];
+            var velocity = velocities[entityIndex];
+            var avoidance = avoidances[entityIndex];
+            
             // Draw colliding rays
             Gizmos.color = Color.red;
             for (var i = 0; i < avoidance.DirectionIndex; i++)
@@ -68,7 +71,9 @@ public partial struct GizmoSystem : ISystem
             //Gizmos.DrawRay(transform.Position, velocity.Value);
         }
 
+        entities.Dispose();
         transforms.Dispose();
         velocities.Dispose();
+        avoidances.Dispose();
     }
 }
