@@ -13,7 +13,7 @@ public partial struct MoveSystem : ISystem
         {
             DeltaTime = SystemAPI.Time.DeltaTime
         };
-        moveJob.ScheduleParallel();
+        state.Dependency = moveJob.ScheduleParallel(state.Dependency);
     }
 }
 
@@ -26,7 +26,6 @@ public partial struct MoveJob : IJobEntity
     // 'in' means we only read from Velocity (a small optimization)
     public void Execute(ref LocalTransform transform, in Velocity velocity)
     {
-        return;
         transform.Position += velocity.Value * DeltaTime;
         transform.Rotation = Quaternion.LookRotation(velocity.Value);
     }
