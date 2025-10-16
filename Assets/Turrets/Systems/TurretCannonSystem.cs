@@ -6,7 +6,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
-partial struct TurretSystem : ISystem
+partial struct TurretCannonSystem : ISystem
 {
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -24,15 +24,22 @@ partial struct TurretSystem : ISystem
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
         foreach (var (turret, transform) in
-                 SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>>())
+                 SystemAPI.Query<RefRW<TurretCannonComponent>, RefRW<LocalTransform>>())
         {
                 
 
             
             var targetBirdPos = birds[0].Position;
             var direction = transform.ValueRO.Position - targetBirdPos;
-            direction.y = 0;
-            transform.ValueRW.Rotation = Quaternion.LookRotation(direction);
+            
+            var lookRotation = Quaternion.LookRotation(direction);
+            
+            Vector3 euler = lookRotation.eulerAngles;
+            if (!turret.ValueRO.isRight) euler.z = turret.ValueRO.isDown ? -90f : 90f;
+            if (turret.ValueRO.isRight) euler.z = turret.ValueRO.isDown ? 90f : -90f;
+            euler.y = 0;
+
+            transform.ValueRW.Rotation = Quaternion.Euler(euler);
 
         }
         
