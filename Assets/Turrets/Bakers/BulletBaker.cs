@@ -5,6 +5,7 @@ class BulletBaker : MonoBehaviour
 {
     public float timeToExplode;
     public float timeLived;
+    public GameObject _explosionPrefab;   
 }
 
 class BulletAuthoringBaker : Baker<BulletBaker>
@@ -17,7 +18,8 @@ class BulletAuthoringBaker : Baker<BulletBaker>
         AddComponent(entity, new BulletComponent
         {
             timeLived = authoring.timeLived,
-            timeToExplode = authoring.timeToExplode
+            timeToExplode = authoring.timeToExplode,
+            explosion = GetEntity(authoring._explosionPrefab, TransformUsageFlags.Dynamic)
         });
     }
 }

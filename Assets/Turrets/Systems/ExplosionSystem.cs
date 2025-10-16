@@ -11,30 +11,40 @@ partial struct ExplosionSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        
+        state.RequireForUpdate<BulletComponent>();   
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
 
-        foreach (var (bullet, transform) in
-                 SystemAPI.Query<RefRW<BulletComponent>, RefRW<LocalTransform>>())
+        var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+
+
+        foreach (var (bullet, transform, bullets) in
+                 SystemAPI.Query<RefRW<BulletComponent>, RefRW<LocalTransform>>().WithEntityAccess())
         {
 
             bullet.ValueRW.timeLived += SystemAPI.Time.DeltaTime;
             if (bullet.ValueRO.timeLived >= bullet.ValueRO.timeToExplode)
             {
-                Entity newEntity = state.EntityManager.Instantiate(turret.ValueRO.bullet);
+                var newEntity = ecb.Instantiate(bullet.ValueRO.explosion);
 
-                var newTransform = SystemAPI.GetComponentRW<LocalTransform>(newEntity);
-                newTransform.ValueRW.Position = transform.ValueRO.Position;
-                newTransform.ValueRW.Rotation = transform.ValueRW.Rotation;
-
-                var newVelocity = SystemAPI.GetComponentRW<Velocity>(newEntity);
-                newVelocity.ValueRW.Value = new float3(1, 1, 1);
+                ecb.AddComponent(newEntity, new LocalTransform
+                {
+                    Position = transform.ValueRO.Position,
+                    Rotation = transform.ValueRO.Rotation,
+                    Scale = 1f
+                });
+                
+        
+                ecb.DestroyEntity(bullets);
             }
         }
+        
+        
+        ecb.Playback(state.EntityManager);
+        ecb.Dispose();
         
     }
 

@@ -5,4 +5,5 @@ public struct BulletComponent : IComponentData
 {
     public float timeToExplode;
     public float timeLived;
+    public Entity explosion;
 }
