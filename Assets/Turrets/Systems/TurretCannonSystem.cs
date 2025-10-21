@@ -39,7 +39,20 @@ partial struct TurretCannonSystem : ISystem
             if (turret.ValueRO.isRight) euler.z = turret.ValueRO.isDown ? 90f : -90f;
             euler.y = 0;
 
-            transform.ValueRW.Rotation = Quaternion.Euler(euler);
+            
+            var tempRotation = Quaternion.Euler(euler);
+
+
+            if (tempRotation.x > 30 || tempRotation.x < -210)
+            {
+                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
+            } else
+            {
+                transform.ValueRW.Rotation = tempRotation;
+            }
+
+
+
 
         }
         

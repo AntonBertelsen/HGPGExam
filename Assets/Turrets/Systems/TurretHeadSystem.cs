@@ -37,7 +37,16 @@ partial struct TurretHeadSystem : ISystem
             euler.z = turret.ValueRO.isRight ? -90f : 90f;
             euler.y = 0;
 
-            transform.ValueRW.Rotation = Quaternion.Euler(euler);
+            var tempRotation = Quaternion.Euler(euler);
+
+
+            if (tempRotation.x > 30 || tempRotation.x < -210)
+            {
+                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
+            } else
+            {
+                transform.ValueRW.Rotation = tempRotation;
+            }
             
         }
         

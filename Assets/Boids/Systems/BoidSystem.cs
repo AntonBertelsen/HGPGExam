@@ -74,6 +74,7 @@ public partial struct BoidJob : IJobEntity
         {
             var otherEntity = Entities[i];
             
+            
             // Skip self
             if (currentEntity == otherEntity)
                 continue;

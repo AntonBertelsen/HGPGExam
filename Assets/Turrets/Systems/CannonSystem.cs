@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
 
 partial struct CannonSystem : ISystem
 {
@@ -23,8 +24,8 @@ partial struct CannonSystem : ISystem
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
-        foreach (var (turret, transform) in
-                 SystemAPI.Query<RefRW<CannonComponent>, RefRW<LocalTransform>>())
+        foreach (var (turret, transform, localToWorldTransform, entity) in
+                 SystemAPI.Query<RefRW<CannonComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>().WithEntityAccess())
         {
                 
 
@@ -35,11 +36,26 @@ partial struct CannonSystem : ISystem
             var lookRotation = Quaternion.LookRotation(direction);
             
             Vector3 euler = lookRotation.eulerAngles;
-            euler.y = 90;
-            euler.z = 90;
+            euler.y = 0;
+            euler.z = 0;
+          
+            var tempRotation = Quaternion.Euler(euler);
 
-            transform.ValueRW.Rotation = Quaternion.Euler(euler);
+            if (tempRotation.x > 0 || tempRotation.x < -180 && turret.ValueRO.isDown)
+            {
+                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
+            } else if (turret.ValueRO.isDown)
+            {
+                transform.ValueRW.Rotation = tempRotation;
+            }
 
+            if (tempRotation.x < 0 || tempRotation.x > 180 && !turret.ValueRO.isDown)
+            {
+                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
+            } else if (!turret.ValueRO.isDown)
+            {
+                transform.ValueRW.Rotation = tempRotation;
+            }
             
             turret.ValueRW.lastFireTime += SystemAPI.Time.DeltaTime;
             if (turret.ValueRO.lastFireTime >= turret.ValueRO.fireRate)
@@ -49,8 +65,13 @@ partial struct CannonSystem : ISystem
                 Entity newEntity = state.EntityManager.Instantiate(turret.ValueRO.bullet);
 
                 var newTransform = SystemAPI.GetComponentRW<LocalTransform>(newEntity);
-                newTransform.ValueRW.Position = transform.ValueRO.Position;
-                newTransform.ValueRW.Rotation = transform.ValueRW.Rotation;
+                
+                float3 dir = math.mul(localToWorldTransform.ValueRO.Rotation, new float3(0, 0, 1));
+
+                newTransform.ValueRW.Position = localToWorldTransform.ValueRO.Position;
+                newTransform.ValueRW.Position += dir  * 1.5f;
+                newTransform.ValueRW.Rotation = localToWorldTransform.ValueRW.Rotation;
+                
 
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(newEntity);
                 newVelocity.ValueRW.Value = new float3(1, 1, 1);
