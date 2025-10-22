@@ -43,7 +43,7 @@ partial struct TurretCannonSystem : ISystem
             var tempRotation = Quaternion.Euler(euler);
 
 
-            if (tempRotation.x > 30 || tempRotation.x < -210)
+            if (tempRotation.x > 10 || tempRotation.x < -180)
             {
                 transform.ValueRW.Rotation = transform.ValueRO.Rotation;
             } else
