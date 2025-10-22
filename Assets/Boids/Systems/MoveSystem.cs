@@ -13,7 +13,7 @@ public partial struct MoveSystem : ISystem
         {
             DeltaTime = SystemAPI.Time.DeltaTime
         };
-        moveJob.ScheduleParallel();
+        state.Dependency = moveJob.ScheduleParallel(state.Dependency);
     }
 }
 
