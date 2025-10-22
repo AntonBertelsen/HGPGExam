@@ -19,6 +19,11 @@ partial struct TurretSystem : ISystem
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
+        if (birds.Length == 0)
+        {
+            return;
+        }
+        
         foreach (var (turret, transform) in
                  SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>>())
         {

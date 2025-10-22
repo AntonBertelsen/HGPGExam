@@ -163,15 +163,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e6ccc0d731dd4c2cad25fb29bf1674d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ViewRadius: 3.5
-  SeparationRadius: 2
+  ViewRadius: 2.5
+  SeparationRadius: 1.5
   SeparationWeight: 5
   AlignmentWeight: 2
   CohesionWeight: 0.4
-  MaxSpeed: 15
-  MinSpeed: 10
+  MaxSpeed: 20
+  MinSpeed: 15
   MaxSteerForce: 0.5
-  BoundaryBounds: 25
+  BoundaryBounds: 50
   BoundaryTurnDistance: 1
 --- !u!1 &1117700025
 GameObject:
