@@ -148,6 +148,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44e9f4c4c38fd499f8282d43fb374334, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  drawBoidGizmos: 0
+  drawLandingAreaGizmos: 0
+  drawLanderStateGizmos: 1
 --- !u!4 &583862165
 Transform:
   m_ObjectHideFlags: 0

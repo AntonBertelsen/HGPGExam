@@ -17,5 +17,6 @@ class BoidAuthoringBaker : Baker<BoidBaker>
         AddComponent<Velocity>(entity);
         AddComponent<BoidTag>(entity);
         AddComponent<ObstacleAvoidance>(entity);
+        AddComponent(entity, new Lander { Energy = Lander.MaxEnergy });
     }
 }
