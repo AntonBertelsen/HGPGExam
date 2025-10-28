@@ -27,12 +27,15 @@ partial struct TurretSystem : ISystem
                  SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>>())
         {
                 
-
+            if (birds.Length <= 0) {
+                break;
+            }
             
             var targetBirdPos = birds[0].Position;
-            var direction = transform.ValueRO.Position - targetBirdPos;
+            var direction = targetBirdPos - transform.ValueRO.Position;
             direction.y = 0;
             transform.ValueRW.Rotation = Quaternion.LookRotation(direction);
+            turret.ValueRW.targetingDirection = direction;
 
         }
         

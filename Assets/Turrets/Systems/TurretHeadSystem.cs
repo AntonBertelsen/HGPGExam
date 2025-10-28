@@ -23,12 +23,16 @@ partial struct TurretHeadSystem : ISystem
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
-        foreach (var (turret, transform) in
-                 SystemAPI.Query<RefRW<TurretHeadComponent>, RefRW<LocalTransform>>())
+        foreach (var (turret, localTransform, localToWorldTransform) in
+                 SystemAPI.Query<RefRW<TurretHeadComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>())
         {
             
+            if (birds.Length <= 0) {
+                break;
+            }
+            
             var targetBirdPos = birds[0].Position;
-            var direction = transform.ValueRO.Position - targetBirdPos;
+            var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
             var lookRotation = Quaternion.LookRotation(direction);
             
@@ -42,10 +46,11 @@ partial struct TurretHeadSystem : ISystem
 
             if (tempRotation.x > 30 || tempRotation.x < -210)
             {
-                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
+                localTransform.ValueRW.Rotation = localTransform.ValueRO.Rotation;
             } else
             {
-                transform.ValueRW.Rotation = tempRotation;
+                localTransform.ValueRW.Rotation = tempRotation;
+                turret.ValueRW.targetingDirection = direction;
             }
             
         }

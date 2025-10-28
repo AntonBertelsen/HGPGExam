@@ -28,10 +28,12 @@ partial struct CannonSystem : ISystem
                  SystemAPI.Query<RefRW<CannonComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>().WithEntityAccess())
         {
                 
+            if (birds.Length <= 0) {
+                break;
+            }
 
-            
             var targetBirdPos = birds[0].Position;
-            var direction = transform.ValueRO.Position - targetBirdPos;
+            var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
             var lookRotation = Quaternion.LookRotation(direction);
             
@@ -47,6 +49,7 @@ partial struct CannonSystem : ISystem
             } else if (turret.ValueRO.isDown)
             {
                 transform.ValueRW.Rotation = tempRotation;
+                turret.ValueRW.targetingDirection = direction;
             }
 
             if (tempRotation.x < 0 || tempRotation.x > 180 && !turret.ValueRO.isDown)
@@ -55,6 +58,7 @@ partial struct CannonSystem : ISystem
             } else if (!turret.ValueRO.isDown)
             {
                 transform.ValueRW.Rotation = tempRotation;
+                turret.ValueRW.targetingDirection = direction;
             }
             
             turret.ValueRW.lastFireTime += SystemAPI.Time.DeltaTime;
@@ -74,7 +78,7 @@ partial struct CannonSystem : ISystem
                 
 
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(newEntity);
-                newVelocity.ValueRW.Value = new float3(1, 1, 1);
+                newVelocity.ValueRW.Value = new float3(3,3,3);
             }
         }
         

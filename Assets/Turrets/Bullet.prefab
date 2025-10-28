@@ -266,6 +266,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce02bff605df5c04296b9cdd4b59febc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timeToExplode: 5
+  timeToExplode: 7
   timeLived: 0
   _explosionPrefab: {fileID: 2936196204218287756, guid: 58c2b27f77eb6e141bb8872cbc66ea1a, type: 3}
