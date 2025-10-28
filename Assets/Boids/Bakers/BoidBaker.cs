@@ -17,6 +17,6 @@ class BoidAuthoringBaker : Baker<BoidBaker>
         AddComponent<Velocity>(entity);
         AddComponent<BoidTag>(entity);
         AddComponent<CellHashComponent>(entity);
-        AddComponent<DebugColorComponent>(entity);
+        AddComponent<ObstacleAvoidance>(entity);
     }
 }

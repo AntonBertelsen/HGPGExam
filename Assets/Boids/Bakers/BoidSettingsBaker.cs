@@ -6,10 +6,12 @@ public struct BoidSettings : IComponentData
 {
     public float ViewRadius;
     public float SeparationRadius;
+    public float AvoidanceRadius;
     
     public float SeparationWeight;
     public float AlignmentWeight;
     public float CohesionWeight;
+    public float AvoidanceWeight;
 
     public float MaxSpeed;
     public float MinSpeed;
@@ -23,11 +25,13 @@ class BoidSettingsBaker : MonoBehaviour
 {
     public float ViewRadius = 7f;
     public float SeparationRadius = 3f;
+    public float AvoidanceRadius = 3f;
     
     [Header("Behavior Weights")]
     public float SeparationWeight = 2.0f;
     public float AlignmentWeight = 1.0f;
     public float CohesionWeight = 1.0f;
+    public float AvoidanceWeight = 1.0F;
 
     [Header("Limits")]
     public float MaxSpeed = 15f;
@@ -48,8 +52,10 @@ class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
         {
             ViewRadius = authoring.ViewRadius,
             SeparationRadius = authoring.SeparationRadius,
+            AvoidanceRadius = authoring.AvoidanceRadius,
             SeparationWeight = authoring.SeparationWeight,
             AlignmentWeight = authoring.AlignmentWeight,
+            AvoidanceWeight = authoring.AvoidanceWeight,
             CohesionWeight = authoring.CohesionWeight,
             MaxSpeed = authoring.MaxSpeed,
             MinSpeed = authoring.MinSpeed,

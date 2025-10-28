@@ -1,22 +1,26 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
 [BurstCompile]
-[UpdateBefore(typeof(MoveSystem))]
+[UpdateBefore(typeof(MoveSystem))] // Calculate new velocity before it's used for movement
 [UpdateAfter(typeof(SpatialHashingSystem))]
 public partial struct BoidSystem : ISystem
 {
     private EntityQuery boidQuery;
+    private NativeArray<float3> _directions;
 
-    [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
+        // We require the config to exist.
         state.RequireForUpdate<BoidSettings>();
+
+        _directions = BoidHelper.Directions;
+
+        // We create a query to find all boids.
         boidQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<BoidTag, LocalTransform, Velocity>()
             .Build(ref state);
@@ -28,30 +32,33 @@ public partial struct BoidSystem : ISystem
         var config = SystemAPI.GetSingleton<BoidSettings>();
         var gridData = SystemAPI.GetSingleton<SpatialGridData>();
 
+        // This is the brute-force part. We copy all boid data into arrays.
+        var boids = boidQuery.ToEntityArray(Allocator.TempJob);
         var transforms = boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var velocities = boidQuery.ToComponentDataArray<Velocity>(Allocator.TempJob);
-        var entities   = boidQuery.ToEntityArray(Allocator.TempJob);
 
-        if (transforms.Length == 0)
+        if (boids.Length == 0)
             return;
 
-        var job = new BoidJob
+        var boidJob = new BoidJob
         {
             Config = config,
-            Entities = entities,
+            Entities = boids,
             Transforms = transforms,
             Velocities = velocities,
+            Directions = _directions,
             Grid = gridData.CellMap,
             Hash = gridData.Grid
         };
 
-        var handle = job.ScheduleParallel(state.Dependency);
+        // Schedule the job and chain the disposal of our temporary arrays.
+        var jobHandle = boidJob.ScheduleParallel(state.Dependency);
 
-        state.Dependency = JobHandle.CombineDependencies(
-            transforms.Dispose(handle),
-            velocities.Dispose(handle),
-            entities.Dispose(handle)
-        );
+        jobHandle = boids.Dispose(jobHandle);
+        jobHandle = transforms.Dispose(jobHandle);
+        jobHandle = velocities.Dispose(jobHandle);
+
+        state.Dependency = jobHandle;
     }
 }
 
@@ -60,23 +67,25 @@ public partial struct BoidJob : IJobEntity
 {
     public BoidSettings Config;
 
+    [ReadOnly] public NativeArray<float3> Directions;
+
+    // These arrays contain the data for ALL boids in the simulation.
     [ReadOnly] public NativeArray<Entity> Entities;
     [ReadOnly] public NativeArray<LocalTransform> Transforms;
     [ReadOnly] public NativeArray<Velocity> Velocities;
     [ReadOnly] public NativeParallelMultiHashMap<int, int> Grid;
     [ReadOnly] public SpatialHashGrid3D Hash;
 
-    public void Execute(Entity currentEntity, ref Velocity currentVelocity, in LocalTransform currentTransform)
+    // This 'Execute' method runs for EACH boid.
+    private void Execute(Entity currentEntity, ref Velocity currentVelocity, in LocalTransform currentTransform,
+        in ObstacleAvoidance obstacleAvoidance)
     {
-        var pos = currentTransform.Position;
-        int3 cell = Hash.GetCellCoords(pos);
+        var flockSize = 0;
+        var flockCentre = float3.zero;
+        var flockVelocity = float3.zero;
+        var flockSeparation = float3.zero;
 
-        var separation = float3.zero;
-        var alignment = float3.zero;
-        var cohesion = float3.zero;
-        int neighborCount = 0;
-
-        float r2 = Config.ViewRadius * Config.ViewRadius;
+        int3 cell = Hash.GetCellCoords(currentTransform.Position);
 
         for (int dx = -1; dx <= 1; dx++)
         for (int dy = -1; dy <= 1; dy++)
@@ -87,6 +96,7 @@ public partial struct BoidJob : IJobEntity
 
             NativeParallelMultiHashMapIterator<int> it;
             int otherIdx;
+
             if (Grid.TryGetFirstValue(key, out otherIdx, out it))
             {
                 do
@@ -95,47 +105,64 @@ public partial struct BoidJob : IJobEntity
                     if (otherEntity == currentEntity)
                         continue;
 
+
                     var otherPos = Transforms[otherIdx].Position;
-                    float3 diff = otherPos - pos;
-                    float dist2 = math.lengthsq(diff);
+                    float3 diff = otherPos - currentTransform.Position;
+                    float dist2 = math.lengthsq(diff); // We do this to avoid a square root calculation for non-neighbors
 
-                    if (dist2 <= r2)
+                    // Check if the other boid is a neighbor (It still may not be even though it's in a neighboring cell)
+                    if (dist2 > Config.ViewRadius * Config.ViewRadius) continue;
+
+                    float dist = math.sqrt(dist2);
+                    flockSize++;
+                    flockCentre += otherPos;
+
+                    var otherVelocity = Velocities[otherIdx];
+                    flockVelocity += otherVelocity.Value;
+
+                    if (dist < Config.SeparationRadius && dist > 1e-6f) // Last check to avoid division by zero
                     {
-                        neighborCount++;
-                        float dist = math.sqrt(dist2);
-                        if (dist < Config.SeparationRadius && dist > 1e-6f)
-                            separation -= diff / dist;
-                        alignment += Velocities[otherIdx].Value;
-                        cohesion += otherPos;
+                        var offset = currentTransform.Position - otherPos;
+                        flockSeparation += offset / dist;
                     }
-
                 } while (Grid.TryGetNextValue(out otherIdx, ref it));
             }
-        }
+        }    
+        var acceleration = float3.zero;
 
-        if (neighborCount > 0)
+        if (flockSize != 0)
         {
-            cohesion = (cohesion / neighborCount) - pos;
-            alignment /= neighborCount;
+            flockCentre /= flockSize;
+            var flockOffset = flockCentre - currentTransform.Position;
 
-            float3 steerCoh = math.normalizesafe(cohesion) * Config.MaxSpeed - currentVelocity.Value;
-            steerCoh = math.normalizesafe(steerCoh) * math.min(math.length(steerCoh), Config.MaxSteerForce);
+            var cohesion = SteerTowards(flockOffset, currentVelocity.Value) * Config.CohesionWeight;
+            var alignment = SteerTowards(flockVelocity, currentVelocity.Value) * Config.AlignmentWeight;
+            var separation = SteerTowards(flockSeparation, currentVelocity.Value) * Config.SeparationWeight;
 
-            float3 steerAli = math.normalizesafe(alignment) * Config.MaxSpeed - currentVelocity.Value;
-            steerAli = math.normalizesafe(steerAli) * math.min(math.length(steerAli), Config.MaxSteerForce);
-
-            float3 steerSep = math.normalizesafe(separation) * Config.MaxSpeed - currentVelocity.Value;
-            steerSep = math.normalizesafe(steerSep) * math.min(math.length(steerSep), Config.MaxSteerForce);
-
-            var total = steerCoh * Config.CohesionWeight
-                      + steerAli * Config.AlignmentWeight
-                      + steerSep * Config.SeparationWeight;
-
-            currentVelocity.Value += total;
+            acceleration += cohesion;
+            acceleration += alignment;
+            acceleration += separation;
         }
 
-        float speed = math.length(currentVelocity.Value);
-        speed = math.clamp(speed, Config.MinSpeed, Config.MaxSpeed);
-        currentVelocity.Value = math.normalizesafe(currentVelocity.Value) * speed;
+        if (obstacleAvoidance.DirectionIndex != 0)
+        {
+            acceleration +=
+                SteerTowards(
+                    BoidHelperMath.RelativeDirection(currentTransform.Rotation,
+                        Directions[obstacleAvoidance.DirectionIndex]), currentVelocity.Value) *
+                Config.AvoidanceWeight;
+        }
+
+        currentVelocity.Value += acceleration;
+
+        // Limit the final speed
+        currentVelocity.Value = math.clamp(math.length(currentVelocity.Value), Config.MinSpeed, Config.MaxSpeed) *
+                                math.normalizesafe(currentVelocity.Value);
+    }
+
+    private float3 SteerTowards(float3 vector, float3 velocity)
+    {
+        var v = math.normalizesafe(vector) * Config.MaxSpeed - velocity;
+        return math.normalizesafe(v) * math.min(math.length(vector), Config.MaxSteerForce);
     }
 }
