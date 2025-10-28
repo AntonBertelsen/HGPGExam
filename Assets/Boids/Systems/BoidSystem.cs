@@ -48,9 +48,9 @@ public partial struct BoidSystem : ISystem
         var handle = job.ScheduleParallel(state.Dependency);
 
         state.Dependency = JobHandle.CombineDependencies(
-            entities.Dispose(handle),
             transforms.Dispose(handle),
-            velocities.Dispose(handle)
+            velocities.Dispose(handle),
+            entities.Dispose(handle)
         );
     }
 }
