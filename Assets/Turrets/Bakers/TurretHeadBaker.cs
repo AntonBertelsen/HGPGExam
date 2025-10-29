@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 class TurretHeadBaker : MonoBehaviour
@@ -22,7 +23,9 @@ class TurretHeadBakerBaker : Baker<TurretHeadBaker>
             fireRate = authoring._fireRate,
             lastFireTime = authoring._lastFireTime,
             isRight = authoring._isRight,
-            bullet = GetEntity(authoring._bulletPrefab, TransformUsageFlags.Dynamic)
+            bullet = GetEntity(authoring._bulletPrefab, TransformUsageFlags.Dynamic),
+            targetingDirection = float3.zero
+
         });
     }
 }

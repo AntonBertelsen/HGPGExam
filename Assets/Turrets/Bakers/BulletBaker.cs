@@ -13,7 +13,10 @@ class BulletAuthoringBaker : Baker<BulletBaker>
     public override void Bake(BulletBaker authoring)
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);
-        AddComponent<Velocity>(entity);
+        AddComponent(entity, new BulletVelocity
+            {
+                Value = 10
+            });
         AddComponent<BulletTag>(entity);
         AddComponent(entity, new BulletComponent
         {

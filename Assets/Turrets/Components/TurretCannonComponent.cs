@@ -9,4 +9,5 @@ public struct TurretCannonComponent : IComponentData
     public bool isDown;
     public bool isRight;
     public Entity bullet;
+    public float3 targetingDirection;
 }

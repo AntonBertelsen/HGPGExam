@@ -170,10 +170,10 @@ MonoBehaviour:
   AlignmentWeight: 2
   CohesionWeight: 0.4
   AvoidanceWeight: 1
-  MaxSpeed: 15
+  MaxSpeed: 25
   MinSpeed: 10
   MaxSteerForce: 0.5
-  BoundaryBounds: 25
+  BoundaryBounds: 10
   BoundaryTurnDistance: 1
 --- !u!1 &1845638624
 GameObject:
