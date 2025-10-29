@@ -7,6 +7,7 @@ using UnityEngine;
 
 [BurstCompile]
 [UpdateBefore(typeof(MoveSystem))] // Calculate new velocity before it's used for movement
+[UpdateAfter(typeof(SpatialHashingSystem))]
 public partial struct BoidSystem : ISystem
 {
     private EntityQuery boidQuery;
@@ -14,9 +15,11 @@ public partial struct BoidSystem : ISystem
 
     public void OnCreate(ref SystemState state)
     {
-        _directions = BoidHelper.Directions;
         // We require the config to exist.
         state.RequireForUpdate<BoidSettings>();
+
+        _directions = BoidHelper.Directions;
+
         // We create a query to find all boids.
         boidQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<BoidTag, LocalTransform, Velocity>()
@@ -27,11 +30,15 @@ public partial struct BoidSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var config = SystemAPI.GetSingleton<BoidSettings>();
+        var gridData = SystemAPI.GetSingleton<SpatialGridData>();
 
         // This is the brute-force part. We copy all boid data into arrays.
         var boids = boidQuery.ToEntityArray(Allocator.TempJob);
         var transforms = boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var velocities = boidQuery.ToComponentDataArray<Velocity>(Allocator.TempJob);
+
+        if (boids.Length == 0)
+            return;
 
         var boidJob = new BoidJob
         {
@@ -40,10 +47,13 @@ public partial struct BoidSystem : ISystem
             Transforms = transforms,
             Velocities = velocities,
             Directions = _directions,
+            Grid = gridData.CellMap,
+            Hash = gridData.Grid
         };
 
         // Schedule the job and chain the disposal of our temporary arrays.
         var jobHandle = boidJob.ScheduleParallel(state.Dependency);
+
         jobHandle = boids.Dispose(jobHandle);
         jobHandle = transforms.Dispose(jobHandle);
         jobHandle = velocities.Dispose(jobHandle);
@@ -63,6 +73,8 @@ public partial struct BoidJob : IJobEntity
     [ReadOnly] public NativeArray<Entity> Entities;
     [ReadOnly] public NativeArray<LocalTransform> Transforms;
     [ReadOnly] public NativeArray<Velocity> Velocities;
+    [ReadOnly] public NativeParallelMultiHashMap<int, int> Grid;
+    [ReadOnly] public SpatialHashGrid3D Hash;
 
     // This 'Execute' method runs for EACH boid.
     private void Execute(Entity currentEntity, ref Velocity currentVelocity, in LocalTransform currentTransform,
@@ -73,35 +85,49 @@ public partial struct BoidJob : IJobEntity
         var flockVelocity = float3.zero;
         var flockSeparation = float3.zero;
 
-        // --- BRUTE-FORCE LOOP ---
-        // Loop through every other boid to find neighbors.
-        for (var i = 0; i < Entities.Length; i++)
+        int3 cell = Hash.GetCellCoords(currentTransform.Position);
+
+        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -1; dy <= 1; dy++)
+        for (int dz = -1; dz <= 1; dz++)
         {
-            var otherEntity = Entities[i];
+            int3 neighborCell = cell + new int3(dx, dy, dz);
+            int key = Hash.GetCellIndex(neighborCell);
 
-            // Skip self
-            if (currentEntity == otherEntity)
-                continue;
+            NativeParallelMultiHashMapIterator<int> it;
+            int otherIdx;
 
-            var otherTransform = Transforms[i];
-            var distance = math.distance(currentTransform.Position, otherTransform.Position);
-
-            // Check if the other boid is a neighbor
-            if (distance > Config.ViewRadius) continue;
-
-            flockSize++;
-            flockCentre += otherTransform.Position;
-
-            var otherVelocity = Velocities[i];
-            flockVelocity += otherVelocity.Value;
-
-            if (distance < Config.SeparationRadius)
+            if (Grid.TryGetFirstValue(key, out otherIdx, out it))
             {
-                var offset = currentTransform.Position - otherTransform.Position;
-                flockSeparation += offset / distance;
-            }
-        }
+                do
+                {
+                    var otherEntity = Entities[otherIdx];
+                    if (otherEntity == currentEntity)
+                        continue;
 
+
+                    var otherPos = Transforms[otherIdx].Position;
+                    float3 diff = otherPos - currentTransform.Position;
+                    float dist2 = math.lengthsq(diff); // We do this to avoid a square root calculation for non-neighbors
+
+                    // Check if the other boid is a neighbor (It still may not be even though it's in a neighboring cell)
+                    if (dist2 > Config.ViewRadius * Config.ViewRadius) continue;
+
+                    float dist = math.sqrt(dist2);
+                    flockSize++;
+                    flockCentre += otherPos;
+
+                    var otherVelocity = Velocities[otherIdx];
+                    flockVelocity += otherVelocity.Value;
+
+                    if (dist < Config.SeparationRadius && dist > 1e-6f) // Last check to avoid division by zero
+                    {
+                        var offset = currentTransform.Position - otherPos;
+                        flockSeparation += offset / dist;
+                    }
+                } while (Grid.TryGetNextValue(out otherIdx, ref it));
+            }
+        }    
         var acceleration = float3.zero;
 
         if (flockSize != 0)

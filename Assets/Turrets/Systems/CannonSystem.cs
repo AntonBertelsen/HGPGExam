@@ -28,33 +28,44 @@ partial struct CannonSystem : ISystem
                  SystemAPI.Query<RefRW<CannonComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>().WithEntityAccess())
         {
                 
+            if (birds.Length <= 0) {
+                break;
+            }
 
-            
-            var targetBirdPos = birds[0].Position;
-            var direction = transform.ValueRO.Position - targetBirdPos;
+            var selectionIndex = 0;
+            var shortestDistance = float.MaxValue;
+            for (int i = 0; i < birds.Length; i++)
+            {
+                if (math.length(birds[i].Position - localToWorldTransform.ValueRO.Position) < shortestDistance)
+                {
+                    selectionIndex = i;
+                    shortestDistance = math.length(birds[i].Position - localToWorldTransform.ValueRO.Position);
+
+                }
+            }
+
+            var targetBirdPos = birds[selectionIndex].Position;
+            var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
             var lookRotation = Quaternion.LookRotation(direction);
             
             Vector3 euler = lookRotation.eulerAngles;
             euler.y = 0;
             euler.z = 0;
-          
-            var tempRotation = Quaternion.Euler(euler);
-
-            if (tempRotation.x > 0 || tempRotation.x < -180 && turret.ValueRO.isDown)
+            if (turret.ValueRO.isDown)
             {
-                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
-            } else if (turret.ValueRO.isDown)
-            {
-                transform.ValueRW.Rotation = tempRotation;
+                euler.x *= -1;
             }
 
-            if (tempRotation.x < 0 || tempRotation.x > 180 && !turret.ValueRO.isDown)
+            var tempRotation = Quaternion.Euler(euler);
+
+            if (tempRotation.x > 30 || tempRotation.x < -180)
             {
                 transform.ValueRW.Rotation = transform.ValueRO.Rotation;
-            } else if (!turret.ValueRO.isDown)
+            } else
             {
                 transform.ValueRW.Rotation = tempRotation;
+                turret.ValueRW.targetingDirection = direction;
             }
             
             turret.ValueRW.lastFireTime += SystemAPI.Time.DeltaTime;
@@ -65,16 +76,18 @@ partial struct CannonSystem : ISystem
                 Entity newEntity = state.EntityManager.Instantiate(turret.ValueRO.bullet);
 
                 var newTransform = SystemAPI.GetComponentRW<LocalTransform>(newEntity);
+                var bulletComponent = SystemAPI.GetComponentRW<BulletComponent>(newEntity);
+                bulletComponent.ValueRW.timeToExplode = math.length(direction) / 10;
                 
                 float3 dir = math.mul(localToWorldTransform.ValueRO.Rotation, new float3(0, 0, 1));
 
                 newTransform.ValueRW.Position = localToWorldTransform.ValueRO.Position;
                 newTransform.ValueRW.Position += dir  * 1.5f;
-                newTransform.ValueRW.Rotation = localToWorldTransform.ValueRW.Rotation;
+                newTransform.ValueRW.Rotation = transform.ValueRW.Rotation;
                 
 
-                var newVelocity = SystemAPI.GetComponentRW<Velocity>(newEntity);
-                newVelocity.ValueRW.Value = new float3(1, 1, 1);
+                var newVelocity = SystemAPI.GetComponentRW<BulletVelocity>(newEntity);
+                newVelocity.ValueRW.Value = direction / math.length(direction) * 40;
             }
         }
         

@@ -4,14 +4,13 @@ using Unity.Mathematics;
 using Unity.Transforms;
 
 [BurstCompile]
-[UpdateAfter(typeof(BoidSystem))]   // Run after the main boids logic
-[UpdateBefore(typeof(MoveSystem))]  // Run before the final movement is applied
+[UpdateAfter(typeof(BoidSystem))]
+[UpdateBefore(typeof(MoveSystem))]
 public partial struct BoundarySystem : ISystem
 {
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        // We only run if there is a config
         state.RequireForUpdate<BoidSettings>();
     }
 
@@ -20,55 +19,85 @@ public partial struct BoundarySystem : ISystem
     {
         var config = SystemAPI.GetSingleton<BoidSettings>();
 
-        var boundaryJob = new BoundaryJob
+        var job = new BoundaryJob
         {
             Config = config
         };
-        state.Dependency = boundaryJob.ScheduleParallel(state.Dependency);
+        state.Dependency = job.ScheduleParallel(state.Dependency);
     }
 }
 
 [BurstCompile]
-// This job now operates on Velocity as well as Position
+[WithAll(typeof(BoidTag))]
 public partial struct BoundaryJob : IJobEntity
 {
-    // We pass the whole config in
     public BoidSettings Config;
 
-    // We read the transform, but we read AND write the velocity
-    public void Execute(in LocalTransform transform, ref Velocity velocity)
+    public void Execute(ref LocalTransform transform, ref Velocity velocity)
     {
-        var steer = float3.zero;
-        
-        // --- Calculate Steering Force ---
-        // If the boid is in the "margin" near a wall, apply a steering force
-        // that is proportional to the boid's max speed.
+        float3 pos = transform.Position;
+        float3 steer = float3.zero;
 
-        if (transform.Position.x < -Config.BoundaryBounds + Config.BoundaryTurnDistance)
-            steer.x = Config.MaxSpeed; // Steer right
-        if (transform.Position.x > Config.BoundaryBounds - Config.BoundaryTurnDistance)
-            steer.x = -Config.MaxSpeed; // Steer left
+        float b = Config.BoundaryBounds;
+        float tDist = Config.BoundaryTurnDistance;
 
-        if (transform.Position.y < -Config.BoundaryBounds + Config.BoundaryTurnDistance)
-            steer.y = Config.MaxSpeed; // Steer up
-        if (transform.Position.y > Config.BoundaryBounds - Config.BoundaryTurnDistance)
-            steer.y = -Config.MaxSpeed; // Steer down
+        // --- X Axis ---
+        if (pos.x < -b + tDist)
+        {
+            float distToEdge = math.abs(pos.x + b);
+            float t = 1f - (distToEdge / tDist);
+            steer.x = math.lerp(0, Config.MaxSpeed, math.saturate(t)); // smooth ramp
+        }
+        else if (pos.x > b - tDist)
+        {
+            float distToEdge = math.abs(b - pos.x);
+            float t = 1f - (distToEdge / tDist);
+            steer.x = -math.lerp(0, Config.MaxSpeed, math.saturate(t));
+        }
 
-        if (transform.Position.z < -Config.BoundaryBounds + Config.BoundaryTurnDistance)
-            steer.z = Config.MaxSpeed; // Steer forward
-        if (transform.Position.z > Config.BoundaryBounds - Config.BoundaryTurnDistance)
-            steer.z = -Config.MaxSpeed; // Steer backward
-            
-        // If there is any steering force to apply...
+        // --- Y Axis ---
+        if (pos.y < -b + tDist)
+        {
+            float distToEdge = math.abs(pos.y + b);
+            float t = 1f - (distToEdge / tDist);
+            steer.y = math.lerp(0, Config.MaxSpeed, math.saturate(t));
+        }
+        else if (pos.y > b - tDist)
+        {
+            float distToEdge = math.abs(b - pos.y);
+            float t = 1f - (distToEdge / tDist);
+            steer.y = -math.lerp(0, Config.MaxSpeed, math.saturate(t));
+        }
+
+        // --- Z Axis ---
+        if (pos.z < -b + tDist)
+        {
+            float distToEdge = math.abs(pos.z + b);
+            float t = 1f - (distToEdge / tDist);
+            steer.z = math.lerp(0, Config.MaxSpeed, math.saturate(t));
+        }
+        else if (pos.z > b - tDist)
+        {
+            float distToEdge = math.abs(b - pos.z);
+            float t = 1f - (distToEdge / tDist);
+            steer.z = -math.lerp(0, Config.MaxSpeed, math.saturate(t));
+        }
+
+        // --- Apply steering ---
         if (!steer.Equals(float3.zero))
         {
-            // Apply the steering force to the current velocity
             var steerForce = steer - velocity.Value;
             steerForce = math.clamp(math.length(steerForce), 0, Config.MaxSteerForce) * math.normalizesafe(steerForce);
             velocity.Value += steerForce;
-            
-            // Re-clamp the final velocity to the max speed
+
+            // Re-clamp speed
             velocity.Value = math.clamp(math.length(velocity.Value), 0, Config.MaxSpeed) * math.normalizesafe(velocity.Value);
         }
+
+        // --- Hard Clamp Position (safety) ---
+        pos.x = math.clamp(pos.x, -b, b);
+        pos.y = math.clamp(pos.y, -b, b);
+        pos.z = math.clamp(pos.z, -b, b);
+        transform.Position = pos;
     }
 }

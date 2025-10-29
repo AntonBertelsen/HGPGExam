@@ -16,6 +16,7 @@ class BoidAuthoringBaker : Baker<BoidBaker>
         var entity = GetEntity(TransformUsageFlags.Dynamic);
         AddComponent<Velocity>(entity);
         AddComponent<BoidTag>(entity);
+        AddComponent<CellHashComponent>(entity);
         AddComponent<ObstacleAvoidance>(entity);
         AddComponent(entity, new Lander { Energy = Lander.MaxEnergy });
     }

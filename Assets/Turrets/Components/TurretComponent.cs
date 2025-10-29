@@ -7,4 +7,5 @@ public struct TurretComponent : IComponentData
     public float fireRate;
     public float lastFireTime;
     public Entity bullet;
+    public float3 targetingDirection;
 }

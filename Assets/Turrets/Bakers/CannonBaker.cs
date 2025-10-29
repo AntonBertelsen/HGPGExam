@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 class CannonBaker : MonoBehaviour
@@ -22,7 +23,8 @@ class CannonBakerBaker : Baker<CannonBaker>
             fireRate = authoring._fireRate,
             lastFireTime = authoring._lastFireTime,
             isDown = authoring.isDown,
-            bullet = GetEntity(authoring._bulletPrefab, TransformUsageFlags.Dynamic)
+            bullet = GetEntity(authoring._bulletPrefab, TransformUsageFlags.Dynamic),
+            targetingDirection = float3.zero
         });
     }
 }
