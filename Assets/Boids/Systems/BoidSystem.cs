@@ -78,7 +78,7 @@ public partial struct BoidJob : IJobEntity
 
     // This 'Execute' method runs for EACH boid.
     private void Execute(Entity currentEntity, ref Velocity currentVelocity, in LocalTransform currentTransform,
-        in ObstacleAvoidance obstacleAvoidance)
+        in ObstacleAvoidance obstacleAvoidance, in Lander lander)
     {
         var flockSize = 0;
         var flockCentre = float3.zero;
@@ -151,6 +151,14 @@ public partial struct BoidJob : IJobEntity
                     BoidHelperMath.RelativeDirection(currentTransform.Rotation,
                         Directions[obstacleAvoidance.DirectionIndex]), currentVelocity.Value) *
                 Config.AvoidanceWeight;
+        }
+
+        if (lander.State == LanderState.Landing)
+        {
+            var distanceToTarget = math.distance(currentTransform.Position, lander.Target);
+            var distanceWeight = math.clamp(1f - (distanceToTarget / Config.LandingRadius), .2f, 1f);
+            acceleration += SteerTowards(lander.Target - currentTransform.Position, currentVelocity.Value) *
+                            (Config.LandingWeight * distanceWeight);
         }
 
         currentVelocity.Value += acceleration;
