@@ -23,14 +23,27 @@ partial struct TurretCannonSystem : ISystem
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
-        foreach (var (turret, transform) in
-                 SystemAPI.Query<RefRW<TurretCannonComponent>, RefRW<LocalTransform>>())
+        foreach (var (turret, localTransform, localToWorldTransform) in
+                 SystemAPI.Query<RefRW<TurretCannonComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>())
         {
                 
-
+            if (birds.Length <= 0) {
+                break;
+            }
             
-            var targetBirdPos = birds[0].Position;
-            var direction = transform.ValueRO.Position - targetBirdPos;
+            var selectionIndex = 0;
+            var shortestDistance = float.MaxValue;
+            for (int i = 0; i < birds.Length; i++)
+            {
+                if (math.length(birds[i].Position - localToWorldTransform.ValueRO.Position) < shortestDistance)
+                {
+                    selectionIndex = i;
+                    shortestDistance = math.length(birds[i].Position - localToWorldTransform.ValueRO.Position);
+                }
+            }
+
+            var targetBirdPos = birds[selectionIndex].Position;
+            var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
             var lookRotation = Quaternion.LookRotation(direction);
             
@@ -45,10 +58,11 @@ partial struct TurretCannonSystem : ISystem
 
             if (tempRotation.x > 10 || tempRotation.x < -180)
             {
-                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
+                localTransform.ValueRW.Rotation = localTransform.ValueRO.Rotation;
             } else
             {
-                transform.ValueRW.Rotation = tempRotation;
+                localTransform.ValueRW.Rotation = tempRotation;
+                turret.ValueRW.targetingDirection = direction;
             }
 
 

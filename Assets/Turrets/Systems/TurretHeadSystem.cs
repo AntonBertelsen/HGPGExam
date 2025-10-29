@@ -23,12 +23,28 @@ partial struct TurretHeadSystem : ISystem
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
-        foreach (var (turret, transform) in
-                 SystemAPI.Query<RefRW<TurretHeadComponent>, RefRW<LocalTransform>>())
+        foreach (var (turret, localTransform, localToWorldTransform) in
+                 SystemAPI.Query<RefRW<TurretHeadComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>())
         {
             
-            var targetBirdPos = birds[0].Position;
-            var direction = transform.ValueRO.Position - targetBirdPos;
+            if (birds.Length <= 0) {
+                break;
+            }
+            
+            var selectionIndex = 0;
+            var shortestDistance = float.MaxValue;
+            for (int i = 0; i < birds.Length; i++)
+            {
+                if (math.length(birds[i].Position - localToWorldTransform.ValueRO.Position) < shortestDistance)
+                {
+                    selectionIndex = i;
+                    shortestDistance = math.length(birds[i].Position - localToWorldTransform.ValueRO.Position);
+
+                }
+            }
+
+            var targetBirdPos = birds[selectionIndex].Position;
+            var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
             var lookRotation = Quaternion.LookRotation(direction);
             
@@ -36,16 +52,18 @@ partial struct TurretHeadSystem : ISystem
 
             euler.z = turret.ValueRO.isRight ? -90f : 90f;
             euler.y = 0;
+            euler.x = 0;
 
             var tempRotation = Quaternion.Euler(euler);
 
 
             if (tempRotation.x > 30 || tempRotation.x < -210)
             {
-                transform.ValueRW.Rotation = transform.ValueRO.Rotation;
+                localTransform.ValueRW.Rotation = localTransform.ValueRO.Rotation;
             } else
             {
-                transform.ValueRW.Rotation = tempRotation;
+                localTransform.ValueRW.Rotation = tempRotation;
+                turret.ValueRW.targetingDirection = direction;
             }
             
         }

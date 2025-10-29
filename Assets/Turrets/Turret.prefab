@@ -1099,7 +1099,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _viewRadius: 10
-  _fireRate: 1
+  _fireRate: 0.5
   _lastFireTime: 0
   isDown: 1
   _bulletPrefab: {fileID: 3018031017203000561, guid: 2de0feca774a37e41a9939a798a6d7ae, type: 3}
@@ -1554,9 +1554,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _viewRadius: 10
-  _fireRate: 1
+  _fireRate: 0.5
   _lastFireTime: 0
-  isDown: 1
+  isDown: 0
   _bulletPrefab: {fileID: 3018031017203000561, guid: 2de0feca774a37e41a9939a798a6d7ae, type: 3}
 --- !u!1 &2345888780483488931
 GameObject:
@@ -1682,7 +1682,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _viewRadius: 10
-  _fireRate: 1
+  _fireRate: 0.5
   _lastFireTime: 0
   isDown: 0
   _bulletPrefab: {fileID: 3018031017203000561, guid: 2de0feca774a37e41a9939a798a6d7ae, type: 3}
@@ -1972,7 +1972,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _viewRadius: 10
-  _fireRate: 1
+  _fireRate: 0.5
   _lastFireTime: 0
   isDown: 1
   _bulletPrefab: {fileID: 3018031017203000561, guid: 2de0feca774a37e41a9939a798a6d7ae, type: 3}

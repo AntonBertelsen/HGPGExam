@@ -8,4 +8,6 @@ public struct TurretHeadComponent : IComponentData
     public float lastFireTime;
     public bool isRight;
     public Entity bullet;
+    public float3 targetingDirection;
+
 }

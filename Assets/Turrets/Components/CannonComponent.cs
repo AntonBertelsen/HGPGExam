@@ -8,4 +8,5 @@ public struct CannonComponent : IComponentData
     public bool isDown;
     public float lastFireTime;
     public Entity bullet;
+    public float3 targetingDirection;
 }

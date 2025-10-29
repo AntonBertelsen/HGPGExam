@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 class TurretBaker : MonoBehaviour
@@ -20,7 +21,8 @@ class TurretBakerBaker : Baker<TurretBaker>
             viewRadius = authoring._viewRadius,
             fireRate = authoring._fireRate,
             lastFireTime = authoring._lastFireTime,
-            bullet = GetEntity(authoring._bulletPrefab, TransformUsageFlags.Dynamic)
+            bullet = GetEntity(authoring._bulletPrefab, TransformUsageFlags.Dynamic),
+            targetingDirection = float3.zero
         });
     }
 }
