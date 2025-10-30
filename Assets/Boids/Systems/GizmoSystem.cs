@@ -2,6 +2,7 @@ using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -135,6 +136,57 @@ public partial struct GizmoSystem : ISystem
 
             Gizmos.DrawSphere(transform.Position, 0.3f);
         }
+    }
+
+    public void DrawKdTreeGizmos()
+    {
+        var tree = SystemAPI.GetSingleton<KdTree>();
+        if (!tree.Data.IsCreated)
+        {
+            return;
+        }
+
+        // Compute the bounds of all points for visualization
+        var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+        foreach (var p in tree.Data)
+        {
+            if (p.Equals(new float3(float.MaxValue))) continue;
+            min = Vector3.Min(min, p);
+            max = Vector3.Max(max, p);
+        }
+
+        DrawKdTreeNode(tree, 0, 0, min, max);
+    }
+
+    private void DrawKdTreeNode(KdTree tree, int index, int depth, Vector3 min, Vector3 max)
+    {
+        if (index >= tree.Data.Length) return;
+        var p = tree.Data[index];
+        if (p.Equals(new float3(float.MaxValue))) return;
+
+        var axis = depth % 3;
+        var from = p;
+        var to = p;
+        from[axis] = min[axis];
+        to[axis] = max[axis];
+
+        Gizmos.color = axis switch
+        {
+            0 => Color.red,
+            1 => Color.green,
+            _ => Color.blue
+        };
+        Gizmos.DrawLine(from, to);
+        Gizmos.DrawSphere(p, 0.1f);
+
+        var leftMax = max;
+        leftMax[axis] = p[axis];
+        DrawKdTreeNode(tree, index * 2 + 1, depth + 1, min, leftMax);
+
+        var rightMin = min;
+        rightMin[axis] = p[axis];
+        DrawKdTreeNode(tree, index * 2 + 2, depth + 1, rightMin, max);
     }
 
     public void DrawTurretGizmos()
