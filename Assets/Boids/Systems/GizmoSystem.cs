@@ -20,6 +20,7 @@ public partial struct GizmoSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
+        state.RequireForUpdate<KdTree>();
         state.RequireForUpdate<BoidSettings>();
 
         _boidQuery = new EntityQueryBuilder(Allocator.Temp)
@@ -99,23 +100,17 @@ public partial struct GizmoSystem : ISystem
 
     public void DrawLandingAreaGizmos()
     {
-        var entities = _landingAreaQuery.ToEntityArray(Allocator.TempJob);
-        var landingAreas = _landingAreaQuery.ToComponentDataArray<LandingArea>(Allocator.TempJob);
-
-        for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
+        var tree = SystemAPI.GetSingleton<KdTree>();
+        if (!tree.Data.IsCreated)
         {
-            var landingArea = landingAreas[entityIndex];
-            var blob = landingArea.SurfaceBlob;
+            return;
+        }
 
-            if (!blob.IsCreated) continue;
-
-            ref var positions = ref blob.Value.Positions;
-
-            for (var i = 0; i < positions.Length; i++)
-            {
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawSphere(positions[i], 0.25f);
-            }
+        for (var i = 0; i < tree.Data.Length; i++)
+        {
+            var position = tree.Data[i];
+            Gizmos.color = tree.IsOccupied(i) ? Color.red : Color.yellow;
+            Gizmos.DrawSphere(position, 0.25f);
         }
     }
 
