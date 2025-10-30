@@ -1,8 +1,8 @@
 ﻿using Unity.Burst;
-using Unity.Collections;using Unity.Entities;
+using Unity.Collections;
+using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
 
 public struct QueryResult
 {
@@ -15,24 +15,29 @@ public struct KdTree : IComponentData, INativeDisposable
 {
     private NativeArray<float3> _data;
     private NativeArray<int> _occupied;
-    
+
     // Exposed for debugging purposes
     internal NativeArray<float3> Data => _data;
-    
+
+    public bool IsValid(int index)
+    {
+        return _occupied[index] != -1;
+    }
+
     public bool IsOccupied(int index)
     {
         return _occupied[index] != 0;
     }
-    
+
     public void Occupy(int index)
     {
-        if (_occupied[index] == -1) return;
+        if (!IsValid(index)) return;
         _occupied[index] += 1;
     }
-    
+
     public void Free(int index)
     {
-        if (_occupied[index] == -1) return;
+        if (!IsValid(index)) return;
         _occupied[index] = math.max(0, _occupied[index] - 1);
     }
 
@@ -120,7 +125,7 @@ public struct KdTree : IComponentData, INativeDisposable
             _data = new NativeArray<float3>(length, Allocator.Persistent),
             _occupied = new NativeArray<int>(length, Allocator.Persistent),
         };
-        
+
         var max = new float3(float.MaxValue);
         for (var i = 0; i < tree._data.Length; i++)
         {
@@ -129,7 +134,7 @@ public struct KdTree : IComponentData, INativeDisposable
 
         using var tempData = new NativeArray<float3>(data, Allocator.Temp);
         BuildTree(tempData, 0, tempData.Length, 0, tree._data, 0);
-        
+
         for (var i = 0; i < tree._occupied.Length; i++)
         {
             if (tree._data[i].Equals(max))

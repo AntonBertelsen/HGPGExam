@@ -149,9 +149,10 @@ public partial struct GizmoSystem : ISystem
         // Compute the bounds of all points for visualization
         var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-        foreach (var p in tree.Data)
+        for (var i = 0; i < tree.Data.Length; i++)
         {
-            if (p.Equals(new float3(float.MaxValue))) continue;
+            var p = tree.Data[i];
+            if (!tree.IsValid(i)) continue;
             min = Vector3.Min(min, p);
             max = Vector3.Max(max, p);
         }
@@ -163,7 +164,7 @@ public partial struct GizmoSystem : ISystem
     {
         if (index >= tree.Data.Length) return;
         var p = tree.Data[index];
-        if (p.Equals(new float3(float.MaxValue))) return;
+        if (!tree.IsValid(index)) return;
 
         var axis = depth % 3;
         var from = p;
