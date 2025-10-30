@@ -2,9 +2,11 @@
 using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine.Serialization;
 
 public class LandingAreaBaker : MonoBehaviour
 {
+    public float spotSpacing = 1f;
 }
 
 public struct LandingAreaMeshBlob
@@ -16,6 +18,7 @@ public struct LandingAreaMeshBlob
 
 public struct LandingArea : IComponentData
 {
+    public float SpotSpacing;
     public BlobAssetReference<LandingAreaMeshBlob> MeshBlob;
 }
 
@@ -52,7 +55,7 @@ public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
         {
             blobNormals[i] = normals[i];
         }
-        
+
         var blobTriangles = builder.Allocate(ref blob.Triangles, triangles.Length);
         for (var i = 0; i < triangles.Length; i++)
         {
@@ -62,6 +65,10 @@ public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
         var blobRef = builder.CreateBlobAssetReference<LandingAreaMeshBlob>(Allocator.Persistent);
         builder.Dispose();
 
-        AddComponent(entity, new LandingArea { MeshBlob = blobRef });
+        AddComponent(entity, new LandingArea
+        {
+            SpotSpacing = baker.spotSpacing,
+            MeshBlob = blobRef
+        });
     }
 }

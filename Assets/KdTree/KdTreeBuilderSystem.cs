@@ -3,7 +3,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
 
 [BurstCompile]
 public partial struct KdTreeBuilderSystem : ISystem
@@ -55,27 +54,75 @@ public partial struct KdTreeBuilderSystem : ISystem
         var triangleCount = triangles.Length / 3;
         var normalMatrix = math.transpose(math.inverse(new float3x3(localToWorld.Value)));
 
-        using var passingCentroids = new NativeList<float3>(Allocator.Temp);
+        using var passingPoints = new NativeList<float3>(Allocator.Temp);
         const float upThreshold = 0.7071f; // cos(45 degrees)
         var up = new float3(0, 1, 0);
 
-        for (var i = 0; i < triangleCount; i++)
+        for (var t = 0; t < triangleCount; t++)
         {
-            var i0 = triangles[i * 3];
-            var i1 = triangles[i * 3 + 1];
-            var i2 = triangles[i * 3 + 2];
+            var i0 = triangles[t * 3];
+            var i1 = triangles[t * 3 + 1];
+            var i2 = triangles[t * 3 + 2];
 
-            var centroid = (vertices[i0] + vertices[i1] + vertices[i2]) / 3f;
-            var worldCentroid = math.transform(localToWorld.Value, centroid);
+            // Transform triangle vertices to world space
+            var v0 = math.transform(localToWorld.Value, vertices[i0]);
+            var v1 = math.transform(localToWorld.Value, vertices[i1]);
+            var v2 = math.transform(localToWorld.Value, vertices[i2]);
+            var n0 = normals[i0];
+            var n1 = normals[i1];
+            var n2 = normals[i2];
 
-            var avgNormal = (normals[i0] + normals[i1] + normals[i2]) / 3f;
-            var worldNormal = math.normalize(math.mul(normalMatrix, avgNormal));
+            // World-space edge vectors
+            var e0 = v1 - v0;
+            var e1 = v2 - v0;
+            var len0 = math.length(e0);
+            var len1 = math.length(e1);
 
-            if (!(math.dot(worldNormal, up) >= upThreshold)) continue;
+            var steps0 = math.max(1, (int)math.floor(len0 / landingArea.SpotSpacing));
+            var steps1 = math.max(1, (int)math.floor(len1 / landingArea.SpotSpacing));
 
-            passingCentroids.Add(worldCentroid);
+            for (var i = 0; i <= steps0; i++)
+            {
+                var a = (float)i / steps0;
+                for (var j = 0; j <= steps1 - i * steps1 / steps0; j++)
+                {
+                    var b = (float)j / steps1;
+                    if (a + b > 1f) continue;
+                    var c = 1f - a - b;
+
+                    // Barycentric interpolation in world space
+                    var pos = a * v1 + b * v2 + c * v0;
+                    var normal = math.normalize(a * n1 + b * n2 + c * n0);
+                    var worldNormal = math.normalize(math.mul(normalMatrix, normal));
+
+                    if (math.dot(worldNormal, up) >= upThreshold)
+                    {
+                        passingPoints.Add(pos);
+                    }
+                }
+            }
         }
 
-        return passingCentroids.ToArray(Allocator.Temp);
+        // Deduplicate points within a small epsilon
+        const float epsilon = 0.01f;
+        using var uniquePoints = new NativeList<float3>(Allocator.Temp);
+        foreach (var point in passingPoints)
+        {
+            var isDuplicate = false;
+            foreach (var other in uniquePoints)
+            {
+                if (math.distancesq(point, other) < epsilon)
+                {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+            if (!isDuplicate)
+            {
+                uniquePoints.Add(point);
+            }
+        }
+
+        return uniquePoints.ToArray(Allocator.Temp);
     }
 }
