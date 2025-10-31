@@ -10,18 +10,13 @@ using Unity.Transforms;
 [RequireMatchingQueriesForUpdate]
 public partial struct LanderSystem : ISystem
 {
-    private EntityQuery _landingAreaQuery;
     private EntityQuery _landerQuery;
-    private NativeArray<bool> _occupiedLandingSpots;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<BeginSimulationEntityCommandBufferSystem.Singleton>();
-
-        _landingAreaQuery = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<LandingArea, LocalTransform>()
-            .Build(ref state);
+        state.RequireForUpdate<KdTree>();
 
         _landerQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<Lander, LocalTransform>()
@@ -29,30 +24,9 @@ public partial struct LanderSystem : ISystem
     }
 
     [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    {
-        state.Dependency = _occupiedLandingSpots.Dispose(state.Dependency);
-    }
-
-    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var landingAreas = _landingAreaQuery.ToComponentDataArray<LandingArea>(Allocator.TempJob);
-        var transforms = _landingAreaQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
-
-        if (!_occupiedLandingSpots.IsCreated)
-        {
-            var spotCount = 0;
-            for (var i = 0; i < landingAreas.Length; i++)
-            {
-                var landingArea = landingAreas[i];
-                ref var positions = ref landingArea.SurfaceBlob.Value.Positions;
-                spotCount += positions.Length;
-            }
-
-            _occupiedLandingSpots = new NativeArray<bool>(spotCount, Allocator.Persistent);
-        }
-
+        var tree = SystemAPI.GetSingleton<KdTree>();
         var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>()
             .CreateCommandBuffer(state.WorldUnmanaged);
 
@@ -60,9 +34,7 @@ public partial struct LanderSystem : ISystem
 
         var landerJob = new LanderJob
         {
-            LandingAreas = landingAreas,
-            Transforms = transforms,
-            OccupiedLandingSpots = _occupiedLandingSpots,
+            KdTree = tree,
             Updates = updates,
             Ecb = ecb.AsParallelWriter()
         };
@@ -77,10 +49,10 @@ public partial struct LanderSystem : ISystem
                 case Update.None:
                     break;
                 case Update.Occupied:
-                    _occupiedLandingSpots[index] = true;
+                    tree.Occupy(index);
                     break;
                 case Update.Freed:
-                    _occupiedLandingSpots[index] = false;
+                    tree.Free(index);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -94,9 +66,7 @@ public partial struct LanderSystem : ISystem
 [BurstCompile]
 public partial struct LanderJob : IJobEntity
 {
-    [ReadOnly] [DeallocateOnJobCompletion] public NativeArray<LandingArea> LandingAreas;
-    [ReadOnly] [DeallocateOnJobCompletion] public NativeArray<LocalTransform> Transforms;
-    [ReadOnly] public NativeArray<bool> OccupiedLandingSpots;
+    [ReadOnly] public KdTree KdTree;
     [WriteOnly] public NativeArray<(Update update, int index)> Updates;
     public EntityCommandBuffer.ParallelWriter Ecb;
 
@@ -109,15 +79,15 @@ public partial struct LanderJob : IJobEntity
             {
                 if (lander.Energy <= 0)
                 {
-                    var target = AcquireTarget(transform);
-                    if (target.index == -1)
+                    var target = KdTree.Query(transform.Position);
+                    if (target.Index == -1)
                     {
                         lander.Energy += 100;
                         break;
                     }
 
-                    lander.Target = target.position;
-                    lander.TargetIndex = target.index;
+                    lander.Target = target.Position;
+                    lander.TargetIndex = target.Index;
                     lander.State = LanderState.Landing;
                 }
                 else
@@ -130,7 +100,7 @@ public partial struct LanderJob : IJobEntity
             }
             case LanderState.Landing:
             {
-                if (OccupiedLandingSpots[lander.TargetIndex])
+                if (KdTree.IsOccupied(lander.TargetIndex))
                 {
                     lander.State = LanderState.Flying;
                     break;
@@ -169,35 +139,6 @@ public partial struct LanderJob : IJobEntity
             default:
                 throw new ArgumentOutOfRangeException();
         }
-    }
-
-    private (float3 position, int index) AcquireTarget(LocalTransform transform)
-    {
-        var closestLandingSpot = (float3.zero, -1);
-        var min = double.MaxValue;
-
-        var curr = 0;
-        foreach (var landingArea in LandingAreas)
-        {
-            ref var positions = ref landingArea.SurfaceBlob.Value.Positions;
-
-            for (var spotIndex = 0; spotIndex < landingArea.Count; spotIndex++)
-            {
-                var globalSpotIndex = curr + spotIndex;
-                if (OccupiedLandingSpots[globalSpotIndex]) continue;
-
-                var pos = positions[spotIndex];
-                var dist = math.length(transform.Position - pos);
-                if (dist >= min) continue;
-
-                min = dist;
-                closestLandingSpot = (pos, globalSpotIndex);
-            }
-
-            curr += landingArea.Count;
-        }
-
-        return closestLandingSpot;
     }
 }
 
