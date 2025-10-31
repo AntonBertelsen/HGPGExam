@@ -7,6 +7,7 @@ using UnityEngine.Serialization;
 public class LandingAreaBaker : MonoBehaviour
 {
     public float spotSpacing = 1f;
+    public float maxInclineDegrees = 45f;
 }
 
 public struct LandingAreaMeshBlob
@@ -19,6 +20,7 @@ public struct LandingAreaMeshBlob
 public struct LandingArea : IComponentData
 {
     public float SpotSpacing;
+    public float MaxInclineDegrees;
     public BlobAssetReference<LandingAreaMeshBlob> MeshBlob;
 }
 
@@ -68,6 +70,7 @@ public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
         AddComponent(entity, new LandingArea
         {
             SpotSpacing = baker.spotSpacing,
+            MaxInclineDegrees = baker.maxInclineDegrees,
             MeshBlob = blobRef
         });
     }

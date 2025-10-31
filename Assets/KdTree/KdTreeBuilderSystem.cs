@@ -55,7 +55,7 @@ public partial struct KdTreeBuilderSystem : ISystem
         var normalMatrix = math.transpose(math.inverse(new float3x3(localToWorld.Value)));
 
         using var passingPoints = new NativeList<float3>(Allocator.Temp);
-        const float upThreshold = 0.7071f; // cos(45 degrees)
+        var upThreshold = math.cos(math.radians(landingArea.MaxInclineDegrees));
         var up = new float3(0, 1, 0);
 
         for (var t = 0; t < triangleCount; t++)
