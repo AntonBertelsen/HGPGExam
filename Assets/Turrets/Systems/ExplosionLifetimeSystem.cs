@@ -26,14 +26,21 @@ partial struct ExplosionLifetimeSystem : ISystem
         {
 
             explosion.ValueRW.timeLived += SystemAPI.Time.DeltaTime;
+            transform.ValueRW.Scale = explosion.ValueRO.timeLived * 10;
 
             if (explosion.ValueRO.timeLived < 0.2)
             {
-                foreach (var (boidTrans, boidVel) in SystemAPI
-                             .Query<RefRW<LocalTransform>, RefRW<Velocity>>().WithAll<BoidTag>())
+                foreach (var (boidTrans, boidVel, boidTag) in SystemAPI
+                             .Query<RefRW<LocalTransform>, RefRW<Velocity>, RefRW<BoidTag>>().WithAll<BoidTag>())
                 {
                     var direction = boidTrans.ValueRO.Position - transform.ValueRO.Position;
                     var dist = math.length(direction);
+
+                    if (dist < transform.ValueRO.Scale*2)
+                    {
+                        boidTag.ValueRW.dead = true;
+                    }
+
                     var normalizedVec = direction/dist;
 
                     if (dist > 10) continue;
@@ -45,7 +52,6 @@ partial struct ExplosionLifetimeSystem : ISystem
                 } 
             }
 
-            transform.ValueRW.Scale = 1.0f * explosion.ValueRO.timeLived * 10;
             if (explosion.ValueRO.timeLived >= explosion.ValueRO.lifeExpetancy)
             {
                 ecb.DestroyEntity(entity);

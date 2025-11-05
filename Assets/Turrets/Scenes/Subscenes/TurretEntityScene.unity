@@ -166,10 +166,12 @@ MonoBehaviour:
   ViewRadius: 3.5
   SeparationRadius: 2
   AvoidanceRadius: 3
+  LandingRadius: 30
   SeparationWeight: 5
   AlignmentWeight: 2
   CohesionWeight: 0.4
   AvoidanceWeight: 1
+  LandingWeight: 4
   MaxSpeed: 25
   MinSpeed: 10
   MaxSteerForce: 0.5
@@ -281,7 +283,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -10.959341
+      value: -14.04
       objectReference: {fileID: 0}
     - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_LocalPosition.z

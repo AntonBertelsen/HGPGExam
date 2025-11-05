@@ -77,7 +77,7 @@ public partial struct BoidJob : IJobEntity
     [ReadOnly] public SpatialHashGrid3D Hash;
 
     // This 'Execute' method runs for EACH boid.
-    private void Execute(Entity currentEntity, ref Velocity currentVelocity, in LocalTransform currentTransform,
+    private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag, in LocalTransform currentTransform,
         in ObstacleAvoidance obstacleAvoidance, in Lander lander)
     {
         var flockSize = 0;
@@ -130,6 +130,8 @@ public partial struct BoidJob : IJobEntity
         }    
         var acceleration = float3.zero;
 
+        if (boidTag.dead) return;
+        
         if (flockSize != 0)
         {
             flockCentre /= flockSize;

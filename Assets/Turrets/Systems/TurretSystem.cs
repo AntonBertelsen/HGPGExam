@@ -20,6 +20,7 @@ partial struct TurretSystem : ISystem
     {
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+        var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
 
         if (birds.Length == 0)
         {
@@ -33,6 +34,7 @@ partial struct TurretSystem : ISystem
             var shortestDistance = float.MaxValue;
             for (int i = 0; i < birds.Length; i++)
             {
+                if (deadBirds[i].dead) continue;
                 if (math.length(birds[i].Position - transform.ValueRO.Position) < shortestDistance)
                 {
                     selectionIndex = i;

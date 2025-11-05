@@ -22,6 +22,7 @@ partial struct CannonSystem : ISystem
         
         
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
+        var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
         foreach (var (turret, transform, localToWorldTransform, entity) in
@@ -36,6 +37,7 @@ partial struct CannonSystem : ISystem
             var shortestDistance = float.MaxValue;
             for (int i = 0; i < birds.Length; i++)
             {
+                if (deadBirds[i].dead) continue;
                 if (math.length(birds[i].Position - localToWorldTransform.ValueRO.Position) < shortestDistance)
                 {
                     selectionIndex = i;
