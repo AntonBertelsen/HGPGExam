@@ -38,7 +38,11 @@ partial struct CannonSystem : ISystem
             for (int i = 0; i < keyValues.Keys.Length; i++)
             {
                 int key = keyValues.Keys[i];
-
+                gridData.ValueRO.CellMap.TryGetFirstValue(key, out var boid, out var its);
+                var potTargetBirdPos = birds[boid].Position;
+                if(turret.ValueRO.isDown && potTargetBirdPos.y > localToWorldTransform.ValueRO.Position.y) continue;
+                if(turret.ValueRO.isDown! && potTargetBirdPos.y < localToWorldTransform.ValueRO.Position.y) continue;
+                
                 if (keyCounts.TryGetValue(key, out int count))
                     keyCounts[key] = count + 1;
                 else
@@ -65,7 +69,7 @@ partial struct CannonSystem : ISystem
             var targetBirdPos = birds[firsValue].Position;
             var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
-            var lookRotation = Quaternion.LookRotation(direction);
+            var lookRotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
             
             Vector3 euler = lookRotation.eulerAngles;
             euler.y = 0;
@@ -74,7 +78,7 @@ partial struct CannonSystem : ISystem
             {
                 euler.x *= -1;
             }
-
+            
             var tempRotation = Quaternion.Euler(euler);
 
             if (tempRotation.x > 30 || tempRotation.x < -180)

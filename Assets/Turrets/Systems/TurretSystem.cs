@@ -67,8 +67,9 @@ partial struct TurretSystem : ISystem
             var targetBirdPos = birds[firsValue].Position;
             var direction = targetBirdPos - transform.ValueRO.Position;
             direction.y = 0;
-            transform.ValueRW.Rotation = Quaternion.LookRotation(direction);
-            turret.ValueRW.targetingDirection = direction;
+            transform.ValueRW.Rotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
+            float3 forward = math.mul(transform.ValueRW.Rotation , new float3(0, 0, 1));
+            turret.ValueRW.targetingDirection = forward;
             keyArray.Dispose();
             keyCounts.Dispose();
             keyValues.Dispose();

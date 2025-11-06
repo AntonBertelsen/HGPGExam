@@ -37,6 +37,14 @@ partial struct TurretCannonSystem : ISystem
             for (int i = 0; i < keyValues.Keys.Length; i++)
             {
                 int key = keyValues.Keys[i];
+                
+                gridData.ValueRO.CellMap.TryGetFirstValue(key, out var boid, out var its);
+                var potTargetBirdPos = birds[boid].Position;
+                var potDirection = potTargetBirdPos - localToWorldTransform.ValueRO.Position;
+                if(turret.ValueRO.isDown && potDirection.y > 0) continue;
+                if(turret.ValueRO.isDown! && potDirection.y < 0) continue;         
+                if(turret.ValueRO.isRight && potDirection.x > 0 && potDirection.z > 0) continue;
+                if(turret.ValueRO.isRight! && potDirection.x < 0 && potDirection.z < 0) continue;
 
                 if (keyCounts.TryGetValue(key, out int count))
                     keyCounts[key] = count + 1;
@@ -64,7 +72,7 @@ partial struct TurretCannonSystem : ISystem
             var targetBirdPos = birds[firsValue].Position;
             var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
-            var lookRotation = Quaternion.LookRotation(direction);
+            var lookRotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
             
             Vector3 euler = lookRotation.eulerAngles;
             if (!turret.ValueRO.isRight) euler.z = turret.ValueRO.isDown ? -90f : 90f;
