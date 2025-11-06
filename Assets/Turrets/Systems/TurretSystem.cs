@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
@@ -6,6 +7,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.UIElements;
+[UpdateAfter(typeof(SpatialHashingSystem))]
 
 partial struct TurretSystem : ISystem
 {
@@ -21,7 +23,8 @@ partial struct TurretSystem : ISystem
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
-
+        var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
+        
         if (birds.Length == 0)
         {
             return;
@@ -30,28 +33,51 @@ partial struct TurretSystem : ISystem
         foreach (var (turret, transform) in
                  SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>>())
         {
-            var selectionIndex = 0;
-            var shortestDistance = float.MaxValue;
-            for (int i = 0; i < birds.Length; i++)
+            //Count the nr of times a key is in the MultiHashMap, select first boid in associated grid
+            var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
+            
+            var keyValues = gridData.ValueRO.CellMap.GetKeyValueArrays(Allocator.Temp);
+            for (int i = 0; i < keyValues.Keys.Length; i++)
             {
-                if (deadBirds[i].dead) continue;
-                if (math.length(birds[i].Position - transform.ValueRO.Position) < shortestDistance)
-                {
-                    selectionIndex = i;
-                    shortestDistance = math.length(birds[i].Position - transform.ValueRO.Position);
+                int key = keyValues.Keys[i];
 
-                }
+                if (keyCounts.TryGetValue(key, out int count))
+                    keyCounts[key] = count + 1;
+                else
+                    keyCounts.Add(key, 1);
             }
 
-            var targetBirdPos = birds[selectionIndex].Position;
+            int keyWithMostBoids = 0;
+            int mostBoids = 0;
+            var keyArray = keyCounts.GetKeyValueArrays(Allocator.Temp);
+            for (int i = 0; i < keyArray.Keys.Length; i++)
+            {
+                int key = keyArray.Keys[i];
+                int count = keyArray.Values[i];
+
+                if (count > mostBoids)
+                {
+                    mostBoids = count;
+                    keyWithMostBoids = key;
+                }
+            }
+            
+            gridData.ValueRO.CellMap.TryGetFirstValue(keyWithMostBoids, out var firsValue, out var it);
+            
+            var targetBirdPos = birds[firsValue].Position;
             var direction = targetBirdPos - transform.ValueRO.Position;
             direction.y = 0;
             transform.ValueRW.Rotation = Quaternion.LookRotation(direction);
             turret.ValueRW.targetingDirection = direction;
+            keyArray.Dispose();
+            keyCounts.Dispose();
+            keyValues.Dispose();
+            
 
         }
         
         birds.Dispose();
+        
     }
 
     [BurstCompile]

@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.SocialPlatforms;
+[UpdateAfter(typeof(TurretCannonSystem))]
 
 partial struct CannonSystem : ISystem
 {
@@ -24,29 +25,44 @@ partial struct CannonSystem : ISystem
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+        var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
 
+        
         foreach (var (turret, transform, localToWorldTransform, entity) in
                  SystemAPI.Query<RefRW<CannonComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>().WithEntityAccess())
         {
-                
-            if (birds.Length <= 0) {
-                break;
+            //Count the nr of times a key is in the MultiHashMap, select first boid in associated grid
+            var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
+            
+            var keyValues = gridData.ValueRO.CellMap.GetKeyValueArrays(Allocator.Temp);
+            for (int i = 0; i < keyValues.Keys.Length; i++)
+            {
+                int key = keyValues.Keys[i];
+
+                if (keyCounts.TryGetValue(key, out int count))
+                    keyCounts[key] = count + 1;
+                else
+                    keyCounts.Add(key, 1);
             }
 
-            var selectionIndex = 0;
-            var shortestDistance = float.MaxValue;
-            for (int i = 0; i < birds.Length; i++)
+            int keyWithMostBoids = 0;
+            int mostBoids = 0;
+            var keyArray = keyCounts.GetKeyValueArrays(Allocator.Temp);
+            for (int i = 0; i < keyArray.Keys.Length; i++)
             {
-                if (deadBirds[i].dead) continue;
-                if (math.length(birds[i].Position - localToWorldTransform.ValueRO.Position) < shortestDistance)
-                {
-                    selectionIndex = i;
-                    shortestDistance = math.length(birds[i].Position - localToWorldTransform.ValueRO.Position);
+                int key = keyArray.Keys[i];
+                int count = keyArray.Values[i];
 
+                if (count > mostBoids)
+                {
+                    mostBoids = count;
+                    keyWithMostBoids = key;
                 }
             }
-
-            var targetBirdPos = birds[selectionIndex].Position;
+            
+            gridData.ValueRO.CellMap.TryGetFirstValue(keyWithMostBoids, out var firsValue, out var it);
+            
+            var targetBirdPos = birds[firsValue].Position;
             var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
             var lookRotation = Quaternion.LookRotation(direction);
@@ -79,7 +95,7 @@ partial struct CannonSystem : ISystem
 
                 var newTransform = SystemAPI.GetComponentRW<LocalTransform>(newEntity);
                 var bulletComponent = SystemAPI.GetComponentRW<BulletComponent>(newEntity);
-                bulletComponent.ValueRW.timeToExplode = math.length(direction) / 10;
+                bulletComponent.ValueRW.timeToExplode = math.length(direction) / 50;
                 
                 float3 dir = math.mul(localToWorldTransform.ValueRO.Rotation, new float3(0, 0, 1));
 

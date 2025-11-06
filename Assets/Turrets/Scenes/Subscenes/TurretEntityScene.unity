@@ -172,10 +172,10 @@ MonoBehaviour:
   CohesionWeight: 0.4
   AvoidanceWeight: 1
   LandingWeight: 4
-  MaxSpeed: 25
-  MinSpeed: 10
+  MaxSpeed: 10
+  MinSpeed: 5
   MaxSteerForce: 0.5
-  BoundaryBounds: 10
+  BoundaryBounds: 20
   BoundaryTurnDistance: 1
 --- !u!1 &1845638624
 GameObject:
@@ -268,7 +268,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefab: {fileID: 6155034886795492701, guid: 2654e18d45b8c49c1ab3f9d584f0953f, type: 3}
-  count: 10000
+  count: 100
 --- !u!1001 &2091354044
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -279,7 +279,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 10.48
+      value: 20.31
       objectReference: {fileID: 0}
     - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_LocalPosition.y
