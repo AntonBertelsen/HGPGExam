@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+[UpdateAfter(typeof(TurretSystem))]
 
 partial struct TurretHeadSystem : ISystem
 {
@@ -22,31 +23,53 @@ partial struct TurretHeadSystem : ISystem
         
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+        var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
+        var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
+
 
         foreach (var (turret, localTransform, localToWorldTransform) in
                  SystemAPI.Query<RefRW<TurretHeadComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>())
         {
+            //Count the nr of times a key is in the MultiHashMap, select first boid in associated grid
+            var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
             
-            if (birds.Length <= 0) {
-                break;
-            }
-            
-            var selectionIndex = 0;
-            var shortestDistance = float.MaxValue;
-            for (int i = 0; i < birds.Length; i++)
+            var keyValues = gridData.ValueRO.CellMap.GetKeyValueArrays(Allocator.Temp);
+            for (int i = 0; i < keyValues.Keys.Length; i++)
             {
-                if (math.length(birds[i].Position - localToWorldTransform.ValueRO.Position) < shortestDistance)
-                {
-                    selectionIndex = i;
-                    shortestDistance = math.length(birds[i].Position - localToWorldTransform.ValueRO.Position);
+                int key = keyValues.Keys[i];
+                    
+                gridData.ValueRO.CellMap.TryGetFirstValue(key, out var boid, out var its);
+                var potTargetBirdPos = birds[boid].Position;
+                if(turret.ValueRO.isRight && potTargetBirdPos.x < localToWorldTransform.ValueRO.Position.x) continue;
+                if(turret.ValueRO.isRight! && potTargetBirdPos.x > localToWorldTransform.ValueRO.Position.x) continue;
+                    
+                if (keyCounts.TryGetValue(key, out int count))
+                    keyCounts[key] = count + 1;
+                else
+                    keyCounts.Add(key, 1);
+            }
 
+            int keyWithMostBoids = 0;
+            int mostBoids = 0;
+            var keyArray = keyCounts.GetKeyValueArrays(Allocator.Temp);
+            for (int i = 0; i < keyArray.Keys.Length; i++)
+            {
+                int key = keyArray.Keys[i];
+                int count = keyArray.Values[i];
+
+                if (count > mostBoids)
+                {
+                    mostBoids = count;
+                    keyWithMostBoids = key;
                 }
             }
-
-            var targetBirdPos = birds[selectionIndex].Position;
+            
+            gridData.ValueRO.CellMap.TryGetFirstValue(keyWithMostBoids, out var firsValue, out var it);
+            
+            var targetBirdPos = birds[firsValue].Position;
             var direction = targetBirdPos - localToWorldTransform.ValueRO.Position;
             
-            var lookRotation = Quaternion.LookRotation(direction);
+            var lookRotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
             
             Vector3 euler = lookRotation.eulerAngles;
 
@@ -55,7 +78,6 @@ partial struct TurretHeadSystem : ISystem
             euler.x = 0;
 
             var tempRotation = Quaternion.Euler(euler);
-
 
             if (tempRotation.x > 30 || tempRotation.x < -210)
             {
