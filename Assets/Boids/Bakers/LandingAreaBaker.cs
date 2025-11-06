@@ -2,20 +2,26 @@
 using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine.Serialization;
 
 public class LandingAreaBaker : MonoBehaviour
 {
+    public float spotSpacing = 1f;
+    public float maxInclineDegrees = 45f;
 }
 
-public struct LandingAreaSurfaceBlob
+public struct LandingAreaMeshBlob
 {
-    public BlobArray<float3> Positions;
+    public BlobArray<float3> Vertices;
+    public BlobArray<float3> Normals;
+    public BlobArray<int> Triangles;
 }
 
 public struct LandingArea : IComponentData
 {
-    public int Count => SurfaceBlob.Value.Positions.Length;
-    public BlobAssetReference<LandingAreaSurfaceBlob> SurfaceBlob;
+    public float SpotSpacing;
+    public float MaxInclineDegrees;
+    public BlobAssetReference<LandingAreaMeshBlob> MeshBlob;
 }
 
 public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
@@ -24,9 +30,7 @@ public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);
 
-        var transform = baker.GetComponent<Transform>();
         var meshFilter = baker.GetComponent<MeshFilter>();
-
         if (meshFilter?.sharedMesh is not
             {
                 vertices: { Length: > 0 } vertices,
@@ -39,44 +43,35 @@ public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
             return;
         }
 
-        var triangleCount = triangles.Length / 3;
-
-        var passingCentroids = new NativeList<float3>(Allocator.Temp);
-        const float upThreshold = 0.7071f; // cos(45 degrees)
-        var up = new float3(0, 1, 0);
-
-        for (var i = 0; i < triangleCount; i++)
-        {
-            var i0 = triangles[i * 3];
-            var i1 = triangles[i * 3 + 1];
-            var i2 = triangles[i * 3 + 2];
-
-            var centroid = (vertices[i0] + vertices[i1] + vertices[i2]) / 3f;
-            var scaledCentroid = Vector3.Scale(centroid, transform.localScale);
-            var worldCentroid = (float3)transform.position + math.mul(transform.rotation, scaledCentroid);
-
-            var avgNormal = (normals[i0] + normals[i1] + normals[i2]) / 3f;
-            var worldNormal = math.normalize(math.mul(transform.rotation, avgNormal));
-
-            if (!(math.dot(worldNormal, up) >= upThreshold)) continue;
-
-            passingCentroids.Add(worldCentroid);
-        }
-
         var builder = new BlobBuilder(Allocator.Temp);
-        ref var blob = ref builder.ConstructRoot<LandingAreaSurfaceBlob>();
-        var trianglePositions = builder.Allocate(ref blob.Positions, passingCentroids.Length);
+        ref var blob = ref builder.ConstructRoot<LandingAreaMeshBlob>();
 
-        for (var i = 0; i < passingCentroids.Length; i++)
+        var blobVertices = builder.Allocate(ref blob.Vertices, vertices.Length);
+        for (var i = 0; i < vertices.Length; i++)
         {
-            trianglePositions[i] = passingCentroids[i];
+            blobVertices[i] = vertices[i];
         }
 
-        passingCentroids.Dispose();
+        var blobNormals = builder.Allocate(ref blob.Normals, normals.Length);
+        for (var i = 0; i < normals.Length; i++)
+        {
+            blobNormals[i] = normals[i];
+        }
 
-        var blobRef = builder.CreateBlobAssetReference<LandingAreaSurfaceBlob>(Allocator.Persistent);
+        var blobTriangles = builder.Allocate(ref blob.Triangles, triangles.Length);
+        for (var i = 0; i < triangles.Length; i++)
+        {
+            blobTriangles[i] = triangles[i];
+        }
+
+        var blobRef = builder.CreateBlobAssetReference<LandingAreaMeshBlob>(Allocator.Persistent);
         builder.Dispose();
 
-        AddComponent(entity, new LandingArea { SurfaceBlob = blobRef });
+        AddComponent(entity, new LandingArea
+        {
+            SpotSpacing = baker.spotSpacing,
+            MaxInclineDegrees = baker.maxInclineDegrees,
+            MeshBlob = blobRef
+        });
     }
 }
