@@ -27,16 +27,25 @@ public partial struct MoveJob : IJobEntity
     // 'in' means we only read from Velocity (a small optimization)
     public void Execute(ref LocalTransform transform, ref BoidTag boidTag, in Velocity velocity)
     {
-        if (boidTag.dead)
+        transform.Position += velocity.Value * DeltaTime;
+        //transform.Rotation = Quaternion.LookRotation(velocity.Value);
+        
+        // Don't try to rotate if the boid is not moving
+        if (math.lengthsq(velocity.Value) < 0.001f)
         {
-            transform.Position += new float3(0, -1, 0) * DeltaTime;
-            transform.Rotation = Quaternion.LookRotation(velocity.Value);  
-        }
-        else
-        {
-            transform.Position += velocity.Value * DeltaTime;
-            transform.Rotation = Quaternion.LookRotation(velocity.Value);  
+            return;
         }
 
+        // 1. Calculate the target rotation based on the velocity vector
+        quaternion targetRotation = quaternion.LookRotationSafe(velocity.Value, math.up());
+        
+        //Todo: Precalculate and move out of job
+        quaternion modelCorrection = quaternion.Euler(math.radians(-90), 0, math.radians(-90));
+        
+        targetRotation = math.mul(targetRotation, modelCorrection);
+        
+        // 2. Smoothly interpolate from the current rotation to the target rotation
+        // math.slerp is used for spherical interpolation, which is correct for rotations.
+        transform.Rotation = math.slerp(transform.Rotation, targetRotation, 5.0f * DeltaTime);
     }
 }

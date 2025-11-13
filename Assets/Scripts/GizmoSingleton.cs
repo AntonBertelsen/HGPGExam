@@ -12,6 +12,8 @@ public class GizmoSingleton : MonoBehaviour
     public bool drawTurretHeadGizmos = true;
     public bool drawTurretCannonGizmos = true;
     public bool drawCannonGizmos = true;
+    public bool drawBoidGridGizmos = true;
+
 
     private SystemHandle _gizmoSystemHandle;
     private World _world;
@@ -67,6 +69,11 @@ public class GizmoSingleton : MonoBehaviour
         if (drawCannonGizmos)
         {
             _world.Unmanaged.GetUnsafeSystemRef<GizmoSystem>(_gizmoSystemHandle).DrawCannonGizmos();
+        }
+        
+        if (drawBoidGridGizmos)
+        {
+            _world.Unmanaged.GetUnsafeSystemRef<GizmoSystem>(_gizmoSystemHandle).DrawBoidGridGizmos();
         }
     }
 }
