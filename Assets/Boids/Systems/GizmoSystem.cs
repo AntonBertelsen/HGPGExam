@@ -17,7 +17,6 @@ public partial struct GizmoSystem : ISystem
     private EntityQuery _turretCannonQuery;
     private EntityQuery _cannonQuery;
 
-
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -35,15 +34,6 @@ public partial struct GizmoSystem : ISystem
             .Build(ref state);
         _turretQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<LocalToWorld, TurretComponent>()
-            .Build(ref state);
-        _turretHeadQuery = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<LocalToWorld, TurretHeadComponent>()
-            .Build(ref state);
-        _turretCannonQuery = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<LocalToWorld, TurretCannonComponent>()
-            .Build(ref state);
-        _cannonQuery = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<LocalToWorld, CannonComponent>()
             .Build(ref state);
     }
 
@@ -195,79 +185,42 @@ public partial struct GizmoSystem : ISystem
         var entities = _turretQuery.ToEntityArray(Allocator.TempJob);
         var transforms = _turretQuery.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
         var turrets = _turretQuery.ToComponentDataArray<TurretComponent>(Allocator.TempJob);
+        EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
 
         for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
         {
             var transform = transforms[entityIndex];
             var turret = turrets[entityIndex];
 
+            var turret_UL_Transform = entityManager.GetComponentData<LocalToWorld>(turret.turret_UL);
+            var turret_DL_Transform = entityManager.GetComponentData<LocalToWorld>(turret.turret_DL);
+            var turret_UR_Transform = entityManager.GetComponentData<LocalToWorld>(turret.turret_UR);
+            var turret_DR_Transform = entityManager.GetComponentData<LocalToWorld>(turret.turret_DR);
+
+            var cannon_UL_Transform = entityManager.GetComponentData<LocalToWorld>(turret.cannon_UL);
+            var cannon_DL_Transform = entityManager.GetComponentData<LocalToWorld>(turret.cannon_DL);
+            var cannon_UR_Transform = entityManager.GetComponentData<LocalToWorld>(turret.cannon_UR);
+            var cannon_DR_Transform = entityManager.GetComponentData<LocalToWorld>(turret.cannon_DR);
+
             Gizmos.color = Color.cyan;
             Gizmos.DrawRay(transform.Position, turret.targetingDirection);
+            
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(turret_UL_Transform.Position, turret.turret_UL_targetingDirection);
+            Gizmos.DrawRay(turret_DL_Transform.Position, turret.turret_DL_targetingDirection);
+            Gizmos.DrawRay(turret_UR_Transform.Position, turret.turret_UR_targetingDirection);
+            Gizmos.DrawRay(turret_DR_Transform.Position, turret.turret_DR_targetingDirection);
+            
+            Gizmos.color = Color.blue;
+            Gizmos.DrawRay(cannon_UL_Transform.Position, turret.cannon_UL_targetingDirection);
+            Gizmos.DrawRay(cannon_DL_Transform.Position, turret.cannon_DL_targetingDirection);
+            Gizmos.DrawRay(cannon_UR_Transform.Position, turret.cannon_UR_targetingDirection);
+            Gizmos.DrawRay(cannon_DR_Transform.Position, turret.cannon_DR_targetingDirection);
         }
 
         entities.Dispose();
         transforms.Dispose();
         turrets.Dispose();
     }
-
-    public void DrawTurretHeadGizmos()
-    {
-        var entities = _turretHeadQuery.ToEntityArray(Allocator.TempJob);
-        var transforms = _turretHeadQuery.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
-        var turretHeads = _turretHeadQuery.ToComponentDataArray<TurretHeadComponent>(Allocator.TempJob);
-
-        for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
-        {
-            var transform = transforms[entityIndex];
-            var turret = turretHeads[entityIndex];
-
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawRay(transform.Position, turret.targetingDirection);
-        }
-
-
-        entities.Dispose();
-        transforms.Dispose();
-        turretHeads.Dispose();
-    }
-
-    public void DrawTurretCannonGizmos()
-    {
-        var entities = _turretCannonQuery.ToEntityArray(Allocator.TempJob);
-        var transforms = _turretCannonQuery.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
-        var turretCannons = _turretCannonQuery.ToComponentDataArray<TurretCannonComponent>(Allocator.TempJob);
-
-        for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
-        {
-            var transform = transforms[entityIndex];
-            var turret = turretCannons[entityIndex];
-
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawRay(transform.Position, turret.targetingDirection);
-        }
-
-        entities.Dispose();
-        transforms.Dispose();
-        turretCannons.Dispose();
-    }
-
-    public void DrawCannonGizmos()
-    {
-        var entities = _cannonQuery.ToEntityArray(Allocator.TempJob);
-        var transforms = _cannonQuery.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
-        var cannons = _cannonQuery.ToComponentDataArray<CannonComponent>(Allocator.TempJob);
-
-        for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
-        {
-            var transform = transforms[entityIndex];
-            var turret = cannons[entityIndex];
-
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawRay(transform.Position, turret.targetingDirection);
-        }
-
-        entities.Dispose();
-        transforms.Dispose();
-        cannons.Dispose();
-    }
+    
 }

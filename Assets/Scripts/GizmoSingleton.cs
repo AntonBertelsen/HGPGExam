@@ -53,20 +53,6 @@ public class GizmoSingleton : MonoBehaviour
         {
             _world.Unmanaged.GetUnsafeSystemRef<GizmoSystem>(_gizmoSystemHandle).DrawTurretGizmos();
         }
-
-        if (drawTurretHeadGizmos)
-        {
-            _world.Unmanaged.GetUnsafeSystemRef<GizmoSystem>(_gizmoSystemHandle).DrawTurretHeadGizmos();
-        }
-
-        if (drawTurretCannonGizmos)
-        {
-            _world.Unmanaged.GetUnsafeSystemRef<GizmoSystem>(_gizmoSystemHandle).DrawTurretCannonGizmos();
-        }
-
-        if (drawCannonGizmos)
-        {
-            _world.Unmanaged.GetUnsafeSystemRef<GizmoSystem>(_gizmoSystemHandle).DrawCannonGizmos();
-        }
+        
     }
 }
