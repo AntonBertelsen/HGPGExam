@@ -151,11 +151,12 @@ MonoBehaviour:
   drawBoidGizmos: 0
   drawLandingAreaGizmos: 0
   drawLanderStateGizmos: 0
-  drawKdTreeGizmos: 1
+  drawKdTreeGizmos: 0
   drawTurretGizmos: 0
   drawTurretHeadGizmos: 0
   drawTurretCannonGizmos: 0
   drawCannonGizmos: 0
+  drawBoidGridGizmos: 1
 --- !u!4 &583862165
 Transform:
   m_ObjectHideFlags: 0
