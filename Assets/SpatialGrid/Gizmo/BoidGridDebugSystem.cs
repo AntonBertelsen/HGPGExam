@@ -41,7 +41,7 @@ public partial struct BoidGridDebugSystem : ISystem
             float3 size = new float3(grid.CellSize);
 
             // draw a box around the cell
-            DrawWireCube(worldPos, size, Color.cyan);
+            //DrawWireCube(worldPos, size, Color.cyan);
         }
 
         drawn.Dispose();

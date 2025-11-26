@@ -5,6 +5,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor; // We need this for drawing text labels
+#endif
 
 public partial struct GizmoSystem : ISystem
 {
@@ -22,6 +25,7 @@ public partial struct GizmoSystem : ISystem
     {
         state.RequireForUpdate<KdTree>();
         state.RequireForUpdate<BoidSettings>();
+        state.RequireForUpdate<SpatialGridData>();
 
         _boidQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<BoidTag, LocalTransform, Velocity, ObstacleAvoidance>()
@@ -223,4 +227,65 @@ public partial struct GizmoSystem : ISystem
         turrets.Dispose();
     }
     
+    public void DrawBoidGridGizmos()
+    {
+        var gridData = SystemAPI.GetSingleton<SpatialGridData>();
+        var grid = gridData.Grid;
+        var map = gridData.CellMap;
+
+        if (!map.IsCreated)
+            return;
+            
+        // This value controls how many boids it takes for a cell to reach max opacity.
+        // Adjust this to suit the density of your simulation.
+        const float maxBoidsForMaxOpacity = 10f; 
+
+        var keys = map.GetKeyArray(Allocator.Temp);
+        var drawn = new NativeParallelHashSet<int>(keys.Length, Allocator.Temp);
+
+        foreach (var key in keys)
+        {
+            if (!drawn.Add(key))
+                continue;
+
+            // --- Core Logic Change: Get the boid count for this cell ---
+            int boidCount = map.CountValuesForKey(key);
+            if (boidCount == 0) continue;
+
+            // --- Calculate Opacity ---
+            // Normalize the count to a 0-1 range based on our max value.
+            float normalizedCount = math.saturate(boidCount / maxBoidsForMaxOpacity);
+
+            // --- Define Colors ---
+            Color wireColorBase = new Color(0.0f,0.6f,0.7f);
+            Color fillColorBase = new Color(0.0f,0.5f,0.6f);
+            Color fillColor = new Color(wireColorBase.r, wireColorBase.g, wireColorBase.b, normalizedCount * 0.2f); // Very transparent
+            Color wireColor = new Color(fillColorBase.r, fillColorBase.g, fillColorBase.b, normalizedCount * 0.65f); // Mostly opaque
+
+            // --- Calculate Position and Size (same as before) ---
+            GetCellCoordsFromIndex(key, grid, out var cell);
+            float3 worldPos = grid.Origin + (new float3(cell) + 0.5f) * grid.CellSize;
+            float3 size = new float3(grid.CellSize);
+
+            // --- Draw the Gizmos ---
+            // 1. Draw the transparent filled cube
+            Gizmos.color = fillColor;
+            Gizmos.DrawCube(worldPos, size);
+
+            // 2. Draw the more opaque wireframe cube
+            Gizmos.color = wireColor;
+            Gizmos.DrawWireCube(worldPos, size);
+        }
+
+        drawn.Dispose();
+        keys.Dispose();
+    }
+    
+    private static void GetCellCoordsFromIndex(int index, SpatialHashGrid3D grid, out int3 cell)
+    {
+        int x = index % grid.GridDim.x;
+        int y = (index / grid.GridDim.x) % grid.GridDim.y;
+        int z = index / (grid.GridDim.x * grid.GridDim.y);
+        cell = new int3(x, y, z);
+    }
 }

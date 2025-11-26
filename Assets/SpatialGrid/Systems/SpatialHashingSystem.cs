@@ -134,3 +134,58 @@ public struct SpatialHashGrid3D
         return c.x + c.y * GridDim.x + c.z * GridDim.x * GridDim.y;
     }
 }
+
+public static class SpatialQuery
+{
+    public static int FindNearest(
+        float3 position, int selfIndex,
+        in SpatialHashGrid3D grid,
+        in NativeParallelMultiHashMap<int,int> cellMap,
+        in NativeArray<float3> positions)
+    {
+        int3 center = grid.GetCellCoords(position);
+        int3 dim = grid.GridDim;
+        float bestDistSq = float.MaxValue;
+        int bestIndex = -1;
+
+        /* TODO: This is a pretty hacky way of finding the nearest boid. We simply expand our search until we find it, and it's not even a good way of doing that,
+           since we are rechecking cells each time we expand (although we have an early opt out)
+           so I think we should consider something else */
+        for (int radius = 0; radius < math.max(dim.x, math.max(dim.y, dim.z)); radius++)
+        {
+            for (int x = -radius; x <= radius; x++)
+            for (int y = -radius; y <= radius; y++)
+            for (int z = -radius; z <= radius; z++)
+            {
+                if (math.abs(x) < radius && math.abs(y) < radius && math.abs(z) < radius)
+                    continue;
+                
+                int3 cell = center + new int3(x,y,z);
+                if (cell.x < 0 || cell.y < 0 || cell.z < 0 ||
+                    cell.x >= dim.x || cell.y >= dim.y || cell.z >= dim.z)
+                    continue;
+
+                int key = grid.GetCellIndex(cell);
+                if (cellMap.TryGetFirstValue(key, out int other, out var it))
+                {
+                    do
+                    {
+                        if (other == selfIndex) continue;
+                        float distSq = math.distancesq(position, positions[other]);
+                        if (distSq < bestDistSq)
+                        {
+                            bestDistSq = distSq;
+                            bestIndex = other;
+                        }
+                    } while (cellMap.TryGetNextValue(out other, ref it));
+                }
+            }
+
+            float minPossible = (radius + 1) * grid.CellSize;
+            if (bestDistSq < minPossible * minPossible)
+                break;
+        }
+
+        return bestIndex;
+    }
+}
