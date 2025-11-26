@@ -93,8 +93,8 @@ public partial struct BoidJob : IJobEntity
     [ReadOnly] public BoundaryComponent Bounds;
 
     // This 'Execute' method runs for EACH boid.
-    private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag, in LocalTransform currentTransform,
-        in ObstacleAvoidance obstacleAvoidance, in Lander lander)
+    private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag,
+        in LocalTransform currentTransform, in ObstacleAvoidance obstacleAvoidance, in Lander lander)
     {
         if (boidTag.dead) return;
         
@@ -126,49 +126,119 @@ public partial struct BoidJob : IJobEntity
         var flockVelocity = float3.zero;
         var flockSeparation = float3.zero;
 
-        int3 cell = Hash.GetCellCoords(currentTransform.Position);
+        var cell = Hash.GetCellCoords(currentTransform.Position);
+        var neighborCount = 0;
+        const int maxNeighbors = 8;
+        const int consideredNeighbors = maxNeighbors * 8;
 
-        for (int dx = -1; dx <= 1; dx++)
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dz = -1; dz <= 1; dz++)
+        for (var dx = -1; dx <= 1; dx++)
+        for (var dy = -1; dy <= 1; dy++)
+        for (var dz = -1; dz <= 1; dz++)
         {
-            int3 neighborCell = cell + new int3(dx, dy, dz);
-            int key = Hash.GetCellIndex(neighborCell);
+            var neighborCell = cell + new int3(dx, dy, dz);
+            var key = Hash.GetCellIndex(neighborCell);
 
-            NativeParallelMultiHashMapIterator<int> it;
-            int otherIdx;
-
-            if (Grid.TryGetFirstValue(key, out otherIdx, out it))
+            if (!Grid.TryGetFirstValue(key, out var otherIdx, out var it))
             {
-                do
-                {
-                    var otherEntity = Entities[otherIdx];
-                    if (otherEntity == currentEntity)
-                        continue;
-
-
-                    var otherPos = Transforms[otherIdx].Position;
-                    float3 diff = otherPos - currentTransform.Position;
-                    float dist2 = math.lengthsq(diff); // We do this to avoid a square root calculation for non-neighbors
-
-                    // Check if the other boid is a neighbor (It still may not be even though it's in a neighboring cell)
-                    if (dist2 > Config.ViewRadius * Config.ViewRadius) continue;
-
-                    float dist = math.sqrt(dist2);
-                    flockSize++;
-                    flockCentre += otherPos;
-
-                    var otherVelocity = Velocities[otherIdx];
-                    flockVelocity += otherVelocity.Value;
-
-                    if (dist < Config.SeparationRadius && dist > 1e-6f) // Last check to avoid division by zero
-                    {
-                        var offset = currentTransform.Position - otherPos;
-                        flockSeparation += offset / dist;
-                    }
-                } while (Grid.TryGetNextValue(out otherIdx, ref it));
+                continue;
             }
-        }    
+
+            do
+            {
+                if (Entities[otherIdx] == currentEntity)
+                {
+                    continue;
+                }
+
+                neighborCount++;
+
+                if (neighborCount > consideredNeighbors)
+                {
+                    goto NeighborsCounted;
+                }
+            } while (Grid.TryGetNextValue(out otherIdx, ref it));
+        }
+
+        NeighborsCounted:
+        var inc = math.max(1, math.min(neighborCount, maxNeighbors) / (double)maxNeighbors);
+        var i = 0;
+        var next = (int)math.floor(inc);
+
+        var randomNum = (currentEntity.Index * (int)math.csum(currentTransform.Position));
+        var iteration = (randomNum % 7) switch
+        {
+            0 => new int3(1, 1, 1),
+            1 => new int3(-1, 1, 1),
+            2 => new int3(-1, -1, 1),
+            3 => new int3(-1, -1, -1),
+            4 => new int3(1, -1, 1),
+            5 => new int3(1, -1, -1),
+            _ => new int3(1, 1, -1),
+        };
+        
+        for (var dxi = -1; dxi <= 1; dxi++)
+        for (var dyi = -1; dyi <= 1; dyi++)
+        for (var dzi = -1; dzi <= 1; dzi++)
+        {
+            var dx = dxi * iteration.x;
+            var dy = dyi * iteration.y;
+            var dz = dzi * iteration.z;
+            var neighborCell = cell + (randomNum % 6) switch
+            {
+                0 => new int3(dx, dy, dz),
+                1 => new int3(dx, dz, dy),
+                2 => new int3(dy, dx, dz),
+                3 => new int3(dy, dz, dx),
+                4 => new int3(dz, dx, dy),
+                _ => new int3(dz, dy, dx),
+            };
+            var key = Hash.GetCellIndex(neighborCell);
+
+            if (!Grid.TryGetFirstValue(key, out var otherIdx, out var it))
+            {
+                continue;
+            }
+
+            do
+            {
+                if (Entities[otherIdx] == currentEntity)
+                {
+                    continue;
+                }
+
+                i++;
+                if (i > consideredNeighbors)
+                {
+                    goto FlockCalculated;
+                }
+
+                if (i != next)
+                {
+                    continue;
+                }
+
+                next = (int)math.floor(i + inc);
+
+                var otherPos = Transforms[otherIdx].Position;
+                var diff = otherPos - currentTransform.Position;
+                var dist2 = math.lengthsq(diff);
+
+                flockSize++;
+                flockCentre += otherPos;
+
+                var otherVelocity = Velocities[otherIdx];
+                flockVelocity += otherVelocity.Value;
+
+                if (dist2 < Config.SeparationRadius * Config.SeparationRadius &&
+                    dist2 > 1e-6f) // Last check to avoid division by zero
+                {
+                    var offset = currentTransform.Position - otherPos;
+                    flockSeparation += offset / dist2;
+                }
+            } while (Grid.TryGetNextValue(out otherIdx, ref it));
+        }
+
+        FlockCalculated:
         var acceleration = float3.zero;
         
         if (flockSize != 0)
