@@ -406,13 +406,13 @@ MonoBehaviour:
   SeparationWeight: 6
   AlignmentWeight: 1
   CohesionWeight: 3
-  AvoidanceWeight: 6
+  AvoidanceWeight: 100
   LandingWeight: 4
   MaxSpeed: 15
   MinSpeed: 10
   MaxSteerForce: 0.5
-  BoundaryBounds: 60
-  BoundaryTurnDistance: 5
+  BoundaryBounds: 110
+  BoundaryTurnDistance: 30
 --- !u!4 &358177141
 Transform:
   m_ObjectHideFlags: 0
@@ -937,13 +937,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1084506477}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.06645227, y: 0.37686956, z: 0.16042998, w: 0.9098437}
-  m_LocalPosition: {x: 0, y: -30, z: 0}
+  m_LocalRotation: {x: 0.040347237, y: 0.21689293, z: 0.073400706, w: 0.9725955}
+  m_LocalPosition: {x: -67.4, y: -1.4, z: -26.9}
   m_LocalScale: {x: 30, y: 1, z: 30}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 45, z: 20}
+  m_LocalEulerAnglesHint: {x: 2.673, y: 25.359, z: 9.233}
 --- !u!1 &1164508198
 GameObject:
   m_ObjectHideFlags: 0
