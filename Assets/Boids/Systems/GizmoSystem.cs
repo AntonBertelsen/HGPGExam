@@ -13,7 +13,6 @@ public partial struct GizmoSystem : ISystem
 {
     private BoidSettings _boidSettings;
     private EntityQuery _boidQuery;
-    private EntityQuery _landingAreaQuery;
     private EntityQuery _landerQuery;
     private EntityQuery _turretQuery;
     private EntityQuery _turretHeadQuery;
@@ -29,9 +28,6 @@ public partial struct GizmoSystem : ISystem
 
         _boidQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<BoidTag, LocalTransform, Velocity, ObstacleAvoidance>()
-            .Build(ref state);
-        _landingAreaQuery = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<LandingArea, LocalTransform>()
             .Build(ref state);
         _landerQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<Lander, LocalTransform>()
