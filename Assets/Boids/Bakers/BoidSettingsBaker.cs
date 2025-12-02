@@ -45,6 +45,59 @@ class BoidSettingsBaker : MonoBehaviour
     [Header("Boundaries")]
     public float BoundaryBounds = 50f;
     public float BoundaryTurnDistance = 10f; // Boids will start turning when 10 units from a wall
+    
+    // --- Runtime ECS sync members ---
+    EntityManager em;
+    Entity settingsEntity;
+
+    void Start()
+    {
+        // if there's no DOTS world (edit mode), bail out quietly
+        if (World.DefaultGameObjectInjectionWorld == null)
+            return;
+
+        em = World.DefaultGameObjectInjectionWorld.EntityManager;
+
+        // Try to find an existing BoidSettings singleton entity (created during conversion/bake)
+        var query = em.CreateEntityQuery(typeof(BoidSettings));
+        if (!query.IsEmpty)
+        {
+            settingsEntity = query.GetSingletonEntity();
+        }
+    }
+
+    void Update()
+    {
+        // don't try to sync if we don't have an EntityManager (e.g. in edit mode)
+        if (em == null || settingsEntity == Entity.Null) return;
+
+        // Every frame write inspector values into the ECS singleton
+        em.SetComponentData(settingsEntity, ToBoidSettings());
+    }
+
+    BoidSettings ToBoidSettings()
+    {
+        return new BoidSettings
+        {
+            ViewRadius = ViewRadius,
+            SeparationRadius = SeparationRadius,
+            AvoidanceRadius = AvoidanceRadius,
+            LandingRadius = LandingRadius,
+
+            SeparationWeight = SeparationWeight,
+            AlignmentWeight = AlignmentWeight,
+            CohesionWeight = CohesionWeight,
+            AvoidanceWeight = AvoidanceWeight,
+            LandingWeight = LandingWeight,
+
+            MaxSpeed = MaxSpeed,
+            MinSpeed = MinSpeed,
+            MaxSteerForce = MaxSteerForce,
+
+            BoundaryBounds = BoundaryBounds,
+            BoundaryTurnDistance = BoundaryTurnDistance
+        };
+    }
 }
 
 class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
