@@ -5,4 +5,6 @@ public struct ExplosionComponent : IComponentData
 {
     public float timeLived;
     public float lifeExpetancy;
+    public float explosionForce;
+    public float explosionDistance;
 }

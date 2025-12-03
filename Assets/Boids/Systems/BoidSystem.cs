@@ -48,7 +48,8 @@ public partial struct BoidSystem : ISystem
             Velocities = velocities,
             Directions = _directions,
             Grid = gridData.CellMap,
-            Hash = gridData.Grid
+            Hash = gridData.Grid,
+            DeltaTime = SystemAPI.Time.DeltaTime
         };
 
         // Schedule the job and chain the disposal of our temporary arrays.
@@ -66,6 +67,7 @@ public partial struct BoidSystem : ISystem
 public partial struct BoidJob : IJobEntity
 {
     public BoidSettings Config;
+    public float DeltaTime; 
 
     [ReadOnly] public NativeArray<float3> Directions;
 
@@ -80,6 +82,31 @@ public partial struct BoidJob : IJobEntity
     private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag, in LocalTransform currentTransform,
         in ObstacleAvoidance obstacleAvoidance, in Lander lander)
     {
+        if (boidTag.dead) return;
+        
+        // Check if we have been blown away by an explosion (velocity > MaxSpeed)
+        float currentSpeed = math.length(currentVelocity.Value);
+        
+        // If we are moving faster than the boid physics allows, we are "tumbling".
+        // In this state, we ignore boid rules and simply decelerate due to drag.
+        if (currentSpeed > Config.MaxSpeed)
+        {
+            // Calculate drag. A value of 2.0f means they recover control quickly. 
+            // 0.5f means they fly helpless for longer.
+            float recoveryDrag = 2.0f; 
+            
+            // Smoothly lerp the velocity down towards the MaxSpeed limit
+            currentVelocity.Value = math.lerp(currentVelocity.Value, 
+                math.normalizesafe(currentVelocity.Value) * Config.MaxSpeed, 
+                DeltaTime * recoveryDrag);
+            
+            // Early return! 
+            // We skip cohesion/alignment because you can't align with friends 
+            // while you are tumbling through the air at 100mph.
+            return; 
+        }
+        
+        
         var flockSize = 0;
         var flockCentre = float3.zero;
         var flockVelocity = float3.zero;
@@ -129,8 +156,6 @@ public partial struct BoidJob : IJobEntity
             }
         }    
         var acceleration = float3.zero;
-
-        if (boidTag.dead) return;
         
         if (flockSize != 0)
         {

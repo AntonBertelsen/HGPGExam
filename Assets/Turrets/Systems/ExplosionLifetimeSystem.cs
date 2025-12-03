@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 partial struct ExplosionLifetimeSystem : ISystem
 {
@@ -21,14 +22,16 @@ partial struct ExplosionLifetimeSystem : ISystem
         var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
 
+        float deltaTime = SystemAPI.Time.DeltaTime;
+        
         foreach (var (explosion, transform, entity) in
                  SystemAPI.Query<RefRW<ExplosionComponent>, RefRW<LocalTransform>>().WithEntityAccess())
         {
 
-            explosion.ValueRW.timeLived += SystemAPI.Time.DeltaTime;
-            transform.ValueRW.Scale = explosion.ValueRO.timeLived * 2;
+            explosion.ValueRW.timeLived += deltaTime;
+            //transform.ValueRW.Scale = explosion.ValueRO.timeLived * 2;
 
-            if (explosion.ValueRO.timeLived < 0.2)
+            if (explosion.ValueRO.timeLived > 0.1 && explosion.ValueRO.timeLived < 0.2)
             {
                 foreach (var (boidTrans, boidVel, boidTag) in SystemAPI
                              .Query<RefRW<LocalTransform>, RefRW<Velocity>, RefRW<BoidTag>>().WithAll<BoidTag>())
@@ -43,9 +46,12 @@ partial struct ExplosionLifetimeSystem : ISystem
 
                     var normalizedVec = direction/dist;
 
-                    if (dist > 10) continue;
-                    var falloff = 1 - (dist / 40);
-                    float3 explosionForce = normalizedVec * falloff * 40;
+                    float baseExplosionDistance = explosion.ValueRO.explosionDistance;
+                    float baseExplosionForce = explosion.ValueRO.explosionForce;
+                    
+                    if (dist > baseExplosionDistance) continue;
+                    var falloff = 1 - (dist / baseExplosionDistance);
+                    float3 explosionForce = normalizedVec * falloff * baseExplosionForce * deltaTime;
                     
                     boidVel.ValueRW.Value += explosionForce;
                     

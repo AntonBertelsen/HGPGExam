@@ -38,6 +38,14 @@ public partial struct BurstSpawnerSystem : ISystem
                 // Set unique velocity
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(entity);
                 newVelocity.ValueRW.Value = random.NextFloat3Direction() * 5f;
+                
+                // This prevents the "Wave Effect" where all birds spawn with full energy, 
+                // fly for exactly 3 minutes, and then all try to land simultaneously.
+                // We set them between 20% and 95% energy so they stagger their first landing naturally.
+                var lander = SystemAPI.GetComponentRW<Lander>(entity);
+                lander.ValueRW.Energy = random.NextFloat(20f, 95f);
+                // Ensure state starts as Flying
+                lander.ValueRW.State = LanderState.Flying;
             }
 
             // The NativeArray created by Instantiate must be disposed.

@@ -175,8 +175,8 @@ MonoBehaviour:
   MaxSpeed: 10
   MinSpeed: 5
   MaxSteerForce: 0.5
-  BoundaryBounds: 20
-  BoundaryTurnDistance: 1
+  BoundaryBounds: 60
+  BoundaryTurnDistance: 40
 --- !u!1 &1845638624
 GameObject:
   m_ObjectHideFlags: 0
@@ -268,7 +268,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefab: {fileID: 8449456927542751932, guid: cfb403e1c2eaf394fbd95384223bda1d, type: 3}
-  count: 100
+  count: 1000
 --- !u!1001 &2091354044
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -3,10 +3,10 @@ using Unity.Mathematics;
 
 public struct Lander : IComponentData
 {
-    public const int MaxEnergy = 2000;
+    public const int MaxEnergy = 120;
     
     public LanderState State;
-    public int Energy;
+    public float Energy;
     public float3 Target;
     public int TargetIndex;
 }

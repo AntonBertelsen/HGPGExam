@@ -968,6 +968,7 @@ GameObject:
   - component: {fileID: 260655147}
   - component: {fileID: 260655146}
   - component: {fileID: 260655145}
+  - component: {fileID: 260655149}
   m_Layer: 0
   m_Name: island2
   m_TagString: Untagged
@@ -1065,6 +1066,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &260655149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 260655144}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a6e2394bb7546029bc3ad55d2a2db59, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  spotSpacing: 1
+  maxInclineDegrees: 20
 --- !u!1001 &274042598
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1272,13 +1287,13 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 299035308}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8a6e2394bb7546029bc3ad55d2a2db59, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   spotSpacing: 1
-  maxInclineDegrees: 45
+  maxInclineDegrees: 20
 --- !u!64 &299035310
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -1417,6 +1432,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1943544544331564580, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: _fireRate
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1943544544331564580, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: _viewRadius
+      value: 150
+      objectReference: {fileID: 0}
     - target: {fileID: 7038103493150413060, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_Name
       value: Turret
@@ -1436,7 +1459,9 @@ GameObject:
   m_Component:
   - component: {fileID: 358177141}
   - component: {fileID: 358177140}
+  - component: {fileID: 358177143}
   - component: {fileID: 358177142}
+  - component: {fileID: 358177144}
   m_Layer: 0
   m_Name: Settings
   m_TagString: Untagged
@@ -1451,20 +1476,20 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 358177139}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6ccc0d731dd4c2cad25fb29bf1674d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   ViewRadius: 3
   SeparationRadius: 2.88
-  AvoidanceRadius: 5
+  AvoidanceRadius: 4
   LandingRadius: 30
   SeparationWeight: 1.2
   AlignmentWeight: 8.02
   CohesionWeight: 1.85
-  AvoidanceWeight: 100
-  LandingWeight: 4
+  AvoidanceWeight: 30
+  LandingWeight: 10
   MaxSpeed: 15
   MinSpeed: 10
   MaxSteerForce: 2.17
@@ -1504,7 +1529,52 @@ MonoBehaviour:
   Material: {fileID: 2100000, guid: ec50aa609c270df428bf7257d9ba82c9, type: 2}
   LOD1Distance: 20
   LOD2Distance: 40
-  LOD3Distance: 60
+  LOD3Distance: 80
+--- !u!114 &358177143
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 358177139}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e6ccc0d731dd4c2cad25fb29bf1674d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ViewRadius: 3.5
+  SeparationRadius: 2
+  AvoidanceRadius: 3
+  LandingRadius: 30
+  SeparationWeight: 5
+  AlignmentWeight: 2
+  CohesionWeight: 0.4
+  AvoidanceWeight: 1
+  LandingWeight: 4
+  MaxSpeed: 10
+  MinSpeed: 5
+  MaxSteerForce: 0.5
+  BoundaryBounds: 150
+  BoundaryTurnDistance: 30
+--- !u!114 &358177144
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 358177139}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0482d877a88754f4d977c5469a56e6e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  CenterOffset: {x: 9, y: 80.7, z: 0}
+  Size: {x: 305.7, y: 172.6, z: 277.3}
+  PositiveMargins: {x: 39.6, y: 27.8, z: 29.1}
+  NegativeMargins: {x: 20.5, y: 2, z: 30.73}
+  ShowGizmos: 0
+  HardBoundColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  SoftBoundColor: {r: 0, g: 1, b: 1, a: 1}
 --- !u!1001 &359233270
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1875,6 +1945,10 @@ PrefabInstance:
     - target: {fileID: 7038103493150413060, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_Name
       value: Turret (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 7038103493150413060, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2850,6 +2924,7 @@ GameObject:
   - component: {fileID: 850233981}
   - component: {fileID: 850233980}
   - component: {fileID: 850233979}
+  - component: {fileID: 850233983}
   m_Layer: 0
   m_Name: island3
   m_TagString: Untagged
@@ -2947,6 +3022,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &850233983
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 850233978}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a6e2394bb7546029bc3ad55d2a2db59, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  spotSpacing: 1
+  maxInclineDegrees: 20
 --- !u!1 &870489447 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: d8498b08161bac442962fee5a73fc093, type: 3}
@@ -3518,6 +3607,7 @@ GameObject:
   - component: {fileID: 1140634729}
   - component: {fileID: 1140634728}
   - component: {fileID: 1140634727}
+  - component: {fileID: 1140634731}
   m_Layer: 0
   m_Name: island4
   m_TagString: Untagged
@@ -3615,6 +3705,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1140634731
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1140634726}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a6e2394bb7546029bc3ad55d2a2db59, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  spotSpacing: 1
+  maxInclineDegrees: 20
 --- !u!1 &1145475921
 GameObject:
   m_ObjectHideFlags: 0
@@ -4251,7 +4355,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefab: {fileID: 8449456927542751932, guid: cfb403e1c2eaf394fbd95384223bda1d, type: 3}
-  count: 20000
+  count: 5000
 --- !u!4 &1381902471
 Transform:
   m_ObjectHideFlags: 0
