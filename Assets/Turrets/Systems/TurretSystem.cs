@@ -129,7 +129,7 @@ partial struct TurretSystem : ISystem
                 if (!targetBirdDR.Equals(float3.zero))
                     FireCannon(ref state, turret.ValueRW.cannon_DR, turret.ValueRO.bullet, turret.ValueRO.cannon_DR_targetingDirection);
             }
-
+            
             // MOVE TURRET BASE //
             direction.y = 0;
             transform.ValueRW.Rotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
