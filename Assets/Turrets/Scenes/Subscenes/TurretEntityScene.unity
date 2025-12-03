@@ -267,7 +267,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b218553c06574ee9acc7dd3107814c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  prefab: {fileID: 6155034886795492701, guid: 2654e18d45b8c49c1ab3f9d584f0953f, type: 3}
+  prefab: {fileID: 8449456927542751932, guid: cfb403e1c2eaf394fbd95384223bda1d, type: 3}
   count: 100
 --- !u!1001 &2091354044
 PrefabInstance:
@@ -316,6 +316,10 @@ PrefabInstance:
     - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1943544544331564580, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: _fireRate
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 7038103493150413060, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
       propertyPath: m_Name
