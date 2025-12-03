@@ -12,3 +12,9 @@ public struct BirdScaleProperty : IComponentData
 {
     public float Value;
 }
+
+[MaterialProperty("_Perched")]
+public struct BirdPerchedProperty : IComponentData
+{
+    public float Value;
+}

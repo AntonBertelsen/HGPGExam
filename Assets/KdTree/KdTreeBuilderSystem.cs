@@ -23,17 +23,21 @@ public partial struct KdTreeBuilderSystem : ISystem
         var landingAreas = _landingAreaQuery.ToComponentDataArray<LandingArea>(Allocator.TempJob);
         var localToWorlds = _landingAreaQuery.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
 
-        using var allLandingSpots = new NativeList<float3>(Allocator.Temp);
+        using var allLandingSpotsPos = new NativeList<float3>(Allocator.Temp);
+        using var allLandingSpotsNorm = new NativeList<float3>(Allocator.Temp);
+        
         for (var i = 0; i < landingAreas.Length; i++)
         {
             var landingArea = landingAreas[i];
             var localToWorld = localToWorlds[i];
-            using var landingSpots = CalculateLandingSpots(landingArea, localToWorld);
-            allLandingSpots.AddRange(landingSpots);
+            
+            CalculateLandingSpots(landingArea, localToWorld, allLandingSpotsPos, allLandingSpotsNorm);
         }
 
-        using var spots = allLandingSpots.ToArray(Allocator.Temp);
-        var tree = KdTree.Create(spots);
+        using var posArray = allLandingSpotsPos.ToArray(Allocator.Temp);
+        using var normArray = allLandingSpotsNorm.ToArray(Allocator.Temp);
+        
+        var tree = KdTree.Create(posArray, normArray);
         state.EntityManager.AddComponentData(state.SystemHandle, tree);
 
         state.Enabled = false;
@@ -45,7 +49,7 @@ public partial struct KdTreeBuilderSystem : ISystem
         state.EntityManager.RemoveComponent<KdTree>(state.SystemHandle);
     }
 
-    private NativeArray<float3> CalculateLandingSpots(LandingArea landingArea, LocalToWorld localToWorld)
+    private void CalculateLandingSpots(LandingArea landingArea, LocalToWorld localToWorld, NativeList<float3> outPositions, NativeList<float3> outNormals)
     {
         ref var vertices = ref landingArea.MeshBlob.Value.Vertices;
         ref var normals = ref landingArea.MeshBlob.Value.Normals;
@@ -55,6 +59,8 @@ public partial struct KdTreeBuilderSystem : ISystem
         var normalMatrix = math.transpose(math.inverse(new float3x3(localToWorld.Value)));
 
         using var passingPoints = new NativeList<float3>(Allocator.Temp);
+        using var passingNormals = new NativeList<float3>(Allocator.Temp);
+        
         var upThreshold = math.cos(math.radians(landingArea.MaxInclineDegrees));
         var up = new float3(0, 1, 0);
 
@@ -64,7 +70,6 @@ public partial struct KdTreeBuilderSystem : ISystem
             var i1 = triangles[t * 3 + 1];
             var i2 = triangles[t * 3 + 2];
 
-            // Transform triangle vertices to world space
             var v0 = math.transform(localToWorld.Value, vertices[i0]);
             var v1 = math.transform(localToWorld.Value, vertices[i1]);
             var v2 = math.transform(localToWorld.Value, vertices[i2]);
@@ -72,7 +77,6 @@ public partial struct KdTreeBuilderSystem : ISystem
             var n1 = normals[i1];
             var n2 = normals[i2];
 
-            // World-space edge vectors
             var e0 = v1 - v0;
             var e1 = v2 - v0;
             var len0 = math.length(e0);
@@ -90,7 +94,6 @@ public partial struct KdTreeBuilderSystem : ISystem
                     if (a + b > 1f) continue;
                     var c = 1f - a - b;
 
-                    // Barycentric interpolation in world space
                     var pos = a * v1 + b * v2 + c * v0;
                     var normal = math.normalize(a * n1 + b * n2 + c * n0);
                     var worldNormal = math.normalize(math.mul(normalMatrix, normal));
@@ -98,20 +101,24 @@ public partial struct KdTreeBuilderSystem : ISystem
                     if (math.dot(worldNormal, up) >= upThreshold)
                     {
                         passingPoints.Add(pos);
+                        passingNormals.Add(worldNormal);
                     }
                 }
             }
         }
 
-        // Deduplicate points within a small epsilon
+        // Deduplicate
         const float epsilon = 0.01f;
-        using var uniquePoints = new NativeList<float3>(Allocator.Temp);
-        foreach (var point in passingPoints)
+        for (int i = 0; i < passingPoints.Length; i++)
         {
+            var point = passingPoints[i];
+            var normal = passingNormals[i];
             var isDuplicate = false;
-            foreach (var other in uniquePoints)
+            
+            // Simple linear check for duplicates (fine for small areas)
+            for (int k = 0; k < outPositions.Length; k++)
             {
-                if (math.distancesq(point, other) < epsilon)
+                if (math.distancesq(point, outPositions[k]) < epsilon)
                 {
                     isDuplicate = true;
                     break;
@@ -119,10 +126,9 @@ public partial struct KdTreeBuilderSystem : ISystem
             }
             if (!isDuplicate)
             {
-                uniquePoints.Add(point);
+                outPositions.Add(point);
+                outNormals.Add(normal);
             }
         }
-
-        return uniquePoints.ToArray(Allocator.Temp);
     }
 }

@@ -14,6 +14,7 @@ public struct QueryResult
 public struct KdTree : IComponentData, INativeDisposable
 {
     private NativeArray<float3> _data;
+    private NativeArray<float3> _normals;
     private NativeArray<int> _occupied;
 
     // Exposed for debugging purposes
@@ -39,6 +40,12 @@ public struct KdTree : IComponentData, INativeDisposable
     {
         if (!IsValid(index)) return;
         _occupied[index] = math.max(0, _occupied[index] - 1);
+    }
+    
+    public float3 GetNormal(int index)
+    {
+        if (!IsValid(index)) return math.up();
+        return _normals[index];
     }
 
     public QueryResult Query(float3 point)
@@ -116,13 +123,14 @@ public struct KdTree : IComponentData, INativeDisposable
         return best;
     }
 
-    public static KdTree Create(NativeArray<float3> data)
+    public static KdTree Create(NativeArray<float3> positions, NativeArray<float3> normals)
     {
         // Next multiple of two size for the tree array
-        var length = data.Length == 0 ? 0 : 1 << (int)math.ceil(math.log2(data.Length + 1));
+        var length = positions.Length == 0 ? 0 : 1 << (int)math.ceil(math.log2(positions.Length + 1));
         var tree = new KdTree
         {
             _data = new NativeArray<float3>(length, Allocator.Persistent),
+            _normals =  new NativeArray<float3>(length, Allocator.Persistent),
             _occupied = new NativeArray<int>(length, Allocator.Persistent),
         };
 
@@ -130,10 +138,13 @@ public struct KdTree : IComponentData, INativeDisposable
         for (var i = 0; i < tree._data.Length; i++)
         {
             tree._data[i] = max;
+            tree._normals[i] = math.up();
         }
 
-        using var tempData = new NativeArray<float3>(data, Allocator.Temp);
-        BuildTree(tempData, 0, tempData.Length, 0, tree._data, 0);
+        using var tempPos = new NativeArray<float3>(positions, Allocator.Temp);
+        using var tempNorm = new NativeArray<float3>(normals, Allocator.Temp);
+        
+        BuildTree(tempPos, tempNorm, 0, tempPos.Length, 0, tree._data, tree._normals, 0);
 
         for (var i = 0; i < tree._occupied.Length; i++)
         {
@@ -146,39 +157,41 @@ public struct KdTree : IComponentData, INativeDisposable
         return tree;
     }
 
-    private static void BuildTree(NativeArray<float3> source, int start, int end, int depth, NativeArray<float3> tree,
+    private static void BuildTree(NativeArray<float3> sourcePos, NativeArray<float3> sourceNorm, int start, int end, int depth, NativeArray<float3> treePos, NativeArray<float3> treeNorm,
         int treeIndex)
     {
         while (true)
         {
-            if (start >= end || treeIndex >= tree.Length) return;
+            if (start >= end || treeIndex >= treePos.Length) return;
 
             var axis = depth % 3;
             var count = end - start;
 
             if (count == 1)
             {
-                tree[treeIndex] = source[start];
+                treePos[treeIndex] = sourcePos[start];
+                treeNorm[treeIndex] = sourceNorm[start];
                 return;
             }
 
             var medianIndex = start + count / 2;
-            QuickSelect(source, start, end, medianIndex, axis);
+            QuickSelect(sourcePos, sourceNorm, start, end, medianIndex, axis);
 
-            tree[treeIndex] = source[medianIndex];
+            treePos[treeIndex] = sourcePos[medianIndex];
+            treeNorm[treeIndex] = sourceNorm[medianIndex];
 
-            BuildTree(source, start, medianIndex, depth + 1, tree, treeIndex * 2 + 1);
+            BuildTree(sourcePos, sourceNorm, start, medianIndex, depth + 1, treePos, treeNorm, treeIndex * 2 + 1);
             start = medianIndex + 1;
             depth += 1;
             treeIndex = treeIndex * 2 + 2;
         }
     }
 
-    private static void QuickSelect(NativeArray<float3> data, int start, int end, int k, int axis)
+    private static void QuickSelect(NativeArray<float3> positions, NativeArray<float3> normals, int start, int end, int k, int axis)
     {
         while (start < end - 1)
         {
-            var pivotIndex = Partition(data, start, end, axis);
+            var pivotIndex = Partition(positions, normals, start, end, axis);
 
             if (pivotIndex == k)
                 return;
@@ -189,29 +202,30 @@ public struct KdTree : IComponentData, INativeDisposable
         }
     }
 
-    private static int Partition(NativeArray<float3> data, int start, int end, int axis)
+    private static int Partition(NativeArray<float3> positions, NativeArray<float3> normals, int start, int end, int axis)
     {
         var pivotIndex = start + (end - start) / 2;
-        var pivotValue = data[pivotIndex][axis];
+        var pivotValue = positions[pivotIndex][axis];
 
-        Swap(data, pivotIndex, end - 1);
+        Swap(positions, normals, pivotIndex, end - 1);
 
         var storeIndex = start;
         for (var i = start; i < end - 1; i++)
         {
-            if (data[i][axis] >= pivotValue) continue;
-            Swap(data, i, storeIndex);
+            if (positions[i][axis] >= pivotValue) continue;
+            Swap(positions, normals, i, storeIndex);
             storeIndex++;
         }
 
-        Swap(data, storeIndex, end - 1);
+        Swap(positions, normals, storeIndex, end - 1);
 
         return storeIndex;
     }
 
-    private static void Swap(NativeArray<float3> data, int i, int j)
+    private static void Swap(NativeArray<float3> positions, NativeArray<float3> normals, int i, int j)
     {
-        (data[i], data[j]) = (data[j], data[i]);
+        (positions[i], positions[j]) = (positions[j], positions[i]);
+        (normals[i], normals[j]) = (normals[j], normals[i]);
     }
 
     public JobHandle Dispose(JobHandle inputDeps)

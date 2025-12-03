@@ -1488,8 +1488,8 @@ MonoBehaviour:
   SeparationWeight: 1.2
   AlignmentWeight: 8.02
   CohesionWeight: 1.85
-  AvoidanceWeight: 30
-  LandingWeight: 10
+  AvoidanceWeight: 100
+  LandingWeight: 20
   MaxSpeed: 15
   MinSpeed: 10
   MaxSteerForce: 2.17
@@ -1542,19 +1542,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e6ccc0d731dd4c2cad25fb29bf1674d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ViewRadius: 3.5
-  SeparationRadius: 2
-  AvoidanceRadius: 3
+  ViewRadius: 3
+  SeparationRadius: 2.5
+  AvoidanceRadius: 5
   LandingRadius: 30
-  SeparationWeight: 5
-  AlignmentWeight: 2
-  CohesionWeight: 0.4
-  AvoidanceWeight: 1
+  SeparationWeight: 6
+  AlignmentWeight: 1
+  CohesionWeight: 3
+  AvoidanceWeight: 100
   LandingWeight: 4
-  MaxSpeed: 10
-  MinSpeed: 5
+  MaxSpeed: 15
+  MinSpeed: 10
   MaxSteerForce: 0.5
-  BoundaryBounds: 150
+  BoundaryBounds: 110
   BoundaryTurnDistance: 30
 --- !u!114 &358177144
 MonoBehaviour:

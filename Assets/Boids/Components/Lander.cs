@@ -15,5 +15,6 @@ public enum LanderState : byte
 {
     Flying,
     Landing,
+    Docking,
     Landed,
 }
