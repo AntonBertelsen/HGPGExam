@@ -4,6 +4,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [BurstCompile]
 [UpdateBefore(typeof(MoveSystem))] // Calculate new velocity before it's used for movement
@@ -31,6 +32,9 @@ public partial struct BoidSystem : ISystem
     {
         var config = SystemAPI.GetSingleton<BoidSettings>();
         var gridData = SystemAPI.GetSingleton<SpatialGridData>();
+        
+        FlowFieldData flowField = default;
+        bool hasFlowField = SystemAPI.TryGetSingleton(out flowField);
 
         // This is the brute-force part. We copy all boid data into arrays.
         var boids = boidQuery.ToEntityArray(Allocator.TempJob);
@@ -49,7 +53,10 @@ public partial struct BoidSystem : ISystem
             Directions = _directions,
             Grid = gridData.CellMap,
             Hash = gridData.Grid,
-            DeltaTime = SystemAPI.Time.DeltaTime
+            DeltaTime = SystemAPI.Time.DeltaTime,
+            
+            HasFlowField = hasFlowField,
+            FlowField = flowField
         };
 
         // Schedule the job and chain the disposal of our temporary arrays.
@@ -77,6 +84,9 @@ public partial struct BoidJob : IJobEntity
     [ReadOnly] public NativeArray<Velocity> Velocities;
     [ReadOnly] public NativeParallelMultiHashMap<int, int> Grid;
     [ReadOnly] public SpatialHashGrid3D Hash;
+    
+    public bool HasFlowField;
+    [ReadOnly] public FlowFieldData FlowField;
 
     // This 'Execute' method runs for EACH boid.
     private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag, in LocalTransform currentTransform,
@@ -170,6 +180,19 @@ public partial struct BoidJob : IJobEntity
             acceleration += alignment;
             acceleration += separation;
         }
+        
+        if (HasFlowField)
+        {
+            // Sample the field at our current position
+            float3 flowForce = GetFlowFieldForce(currentTransform.Position);
+            acceleration += flowForce * Config.FlowmapWeight;
+            
+            //if (math.lengthsq(flowForce) > 0.0f)
+            //{
+            //    // Note: Debug.DrawLine works in Burst but requires 'using UnityEngine;'
+            //    Debug.DrawLine(currentTransform.Position, currentTransform.Position + flowForce * 2.0f, Color.magenta);
+            //}
+        }
 
         if (obstacleAvoidance.DirectionIndex != 0)
         {
@@ -199,5 +222,61 @@ public partial struct BoidJob : IJobEntity
     {
         var v = math.normalizesafe(vector) * Config.MaxSpeed - velocity;
         return math.normalizesafe(v) * math.min(math.length(vector), Config.MaxSteerForce);
+    }
+    
+    // --- TRILINEAR INTERPOLATION SAMPLING ---
+    private float3 GetFlowFieldForce(float3 position)
+    {
+        // 1. Convert world position to grid space (0.0 to Dimensions)
+        float3 localPos = (position - FlowField.GridOrigin) / FlowField.CellSize;
+        
+        // 2. Check bounds - if outside the baked area, return zero force
+        if (localPos.x < 0 || localPos.y < 0 || localPos.z < 0 ||
+            localPos.x >= FlowField.GridDimensions.x - 1 || 
+            localPos.y >= FlowField.GridDimensions.y - 1 || 
+            localPos.z >= FlowField.GridDimensions.z - 1)
+        {
+            return float3.zero;
+        }
+
+        // 3. Get the bottom-left corner index (Integer part)
+        int3 c000 = (int3)math.floor(localPos);
+        int3 c111 = c000 + 1;
+
+        // 4. Calculate fractional weights (0.0 to 1.0) for interpolation
+        float3 w = localPos - c000;
+        float3 invW = 1.0f - w;
+
+        int gridDimensionX = FlowField.GridDimensions.x;
+        int gridDimensionY = FlowField.GridDimensions.y;
+
+        // Helper to get flat index safely
+        int GetIdx(int x, int y, int z) => x + y * gridDimensionX + z * gridDimensionX * gridDimensionY;
+
+        // 5. Sample the 8 neighbor vectors
+        // x/y/z correspond to 0 or 1 offsets
+        float3 v000 = FlowField.Blob.Value.Vectors[GetIdx(c000.x, c000.y, c000.z)];
+        float3 v100 = FlowField.Blob.Value.Vectors[GetIdx(c111.x, c000.y, c000.z)];
+        float3 v010 = FlowField.Blob.Value.Vectors[GetIdx(c000.x, c111.y, c000.z)];
+        float3 v110 = FlowField.Blob.Value.Vectors[GetIdx(c111.x, c111.y, c000.z)];
+        
+        float3 v001 = FlowField.Blob.Value.Vectors[GetIdx(c000.x, c000.y, c111.z)];
+        float3 v101 = FlowField.Blob.Value.Vectors[GetIdx(c111.x, c000.y, c111.z)];
+        float3 v011 = FlowField.Blob.Value.Vectors[GetIdx(c000.x, c111.y, c111.z)];
+        float3 v111 = FlowField.Blob.Value.Vectors[GetIdx(c111.x, c111.y, c111.z)];
+
+        // 6. Trilinear Blend
+        // Blend along X
+        float3 x00 = v000 * invW.x + v100 * w.x;
+        float3 x10 = v010 * invW.x + v110 * w.x;
+        float3 x01 = v001 * invW.x + v101 * w.x;
+        float3 x11 = v011 * invW.x + v111 * w.x;
+
+        // Blend along Y
+        float3 y0 = x00 * invW.y + x10 * w.y;
+        float3 y1 = x01 * invW.y + x11 * w.y;
+
+        // Blend along Z (Final result)
+        return y0 * invW.z + y1 * w.z;
     }
 }

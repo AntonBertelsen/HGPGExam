@@ -23,6 +23,9 @@ public partial struct SpatialHashingSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<BoidSettings>();
+        // 1. Require the boundary component so we can align the grid to it
+        state.RequireForUpdate<BoundaryComponent>();
+        
         boidQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<BoidTag, LocalTransform>()
             .Build(ref state);
@@ -43,29 +46,44 @@ public partial struct SpatialHashingSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var config = SystemAPI.GetSingleton<BoidSettings>();
+        // 2. Fetch the boundary
+        var boundary = SystemAPI.GetSingleton<BoundaryComponent>();
+        
         var boidCount = boidQuery.CalculateEntityCount();
 
         if (boidCount == 0)
             return;
 
-        // Extract transforms
         var transforms = boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var positions = new NativeArray<float3>(boidCount, Allocator.TempJob);
         for (int i = 0; i < boidCount; i++)
             positions[i] = transforms[i].Position;
 
-        // Define grid parameters
+        // 3. Define Grid Parameters based on BOUNDARY, not Config
         float cellSize = config.ViewRadius;
-        float3 origin = new float3(-config.BoundaryBounds);
-        int dim = (int)math.ceil((config.BoundaryBounds * 2f) / cellSize);
+        
+        // Calculate the bottom-left corner of the boundary box
+        float3 boundsMin = boundary.Center - (boundary.Size * 0.5f);
+        
+        // Calculate dimensions based on the boundary size
+        int3 gridDim = new int3(
+            (int)math.ceil(boundary.Size.x / cellSize),
+            (int)math.ceil(boundary.Size.y / cellSize),
+            (int)math.ceil(boundary.Size.z / cellSize)
+        );
+        
+        // Add a padding buffer to the grid dimension to prevent edge-case "out of bounds" errors 
+        // if a boid slightly overshoots the boundary before being steered back.
+        gridDim += new int3(2, 2, 2);
+        boundsMin -= new float3(cellSize, cellSize, cellSize);
+
         var gridStruct = new SpatialHashGrid3D
         {
             CellSize = cellSize,
-            GridDim = new int3(dim, dim, dim),
-            Origin = origin
+            GridDim = gridDim,
+            Origin = boundsMin
         };
 
-        // Prepare persistent grid map
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
         ref var cellMap = ref gridData.ValueRW.CellMap;
 
@@ -148,42 +166,33 @@ public static class SpatialQuery
         float bestDistSq = float.MaxValue;
         int bestIndex = -1;
 
-        /* TODO: This is a pretty hacky way of finding the nearest boid. We simply expand our search until we find it, and it's not even a good way of doing that,
-           since we are rechecking cells each time we expand (although we have an early opt out)
-           so I think we should consider something else */
-        for (int radius = 0; radius < math.max(dim.x, math.max(dim.y, dim.z)); radius++)
+        // Optimized search radius to just check immediate neighbors (3x3x3)
+        // Checking the whole grid size is extremely expensive and defeats the purpose of the grid.
+        int radius = 1; 
+
+        for (int x = -radius; x <= radius; x++)
+        for (int y = -radius; y <= radius; y++)
+        for (int z = -radius; z <= radius; z++)
         {
-            for (int x = -radius; x <= radius; x++)
-            for (int y = -radius; y <= radius; y++)
-            for (int z = -radius; z <= radius; z++)
+            int3 cell = center + new int3(x,y,z);
+            if (cell.x < 0 || cell.y < 0 || cell.z < 0 ||
+                cell.x >= dim.x || cell.y >= dim.y || cell.z >= dim.z)
+                continue;
+
+            int key = grid.GetCellIndex(cell);
+            if (cellMap.TryGetFirstValue(key, out int other, out var it))
             {
-                if (math.abs(x) < radius && math.abs(y) < radius && math.abs(z) < radius)
-                    continue;
-                
-                int3 cell = center + new int3(x,y,z);
-                if (cell.x < 0 || cell.y < 0 || cell.z < 0 ||
-                    cell.x >= dim.x || cell.y >= dim.y || cell.z >= dim.z)
-                    continue;
-
-                int key = grid.GetCellIndex(cell);
-                if (cellMap.TryGetFirstValue(key, out int other, out var it))
+                do
                 {
-                    do
+                    if (other == selfIndex) continue;
+                    float distSq = math.distancesq(position, positions[other]);
+                    if (distSq < bestDistSq)
                     {
-                        if (other == selfIndex) continue;
-                        float distSq = math.distancesq(position, positions[other]);
-                        if (distSq < bestDistSq)
-                        {
-                            bestDistSq = distSq;
-                            bestIndex = other;
-                        }
-                    } while (cellMap.TryGetNextValue(out other, ref it));
-                }
+                        bestDistSq = distSq;
+                        bestIndex = other;
+                    }
+                } while (cellMap.TryGetNextValue(out other, ref it));
             }
-
-            float minPossible = (radius + 1) * grid.CellSize;
-            if (bestDistSq < minPossible * minPossible)
-                break;
         }
 
         return bestIndex;

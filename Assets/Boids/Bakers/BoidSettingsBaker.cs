@@ -14,6 +14,7 @@ public struct BoidSettings : IComponentData
     public float CohesionWeight;
     public float AvoidanceWeight;
     public float LandingWeight;
+    public float FlowmapWeight;
 
     public float MaxSpeed;
     public float MinSpeed;
@@ -36,6 +37,7 @@ class BoidSettingsBaker : MonoBehaviour
     public float CohesionWeight = 3.0f;
     public float AvoidanceWeight = 6.0F;
     public float LandingWeight = 4.0F;
+    public float FlowmapWeight = 1.0f;
 
     [Header("Limits")]
     public float MaxSpeed = 15f;
@@ -89,6 +91,7 @@ class BoidSettingsBaker : MonoBehaviour
             CohesionWeight = CohesionWeight,
             AvoidanceWeight = AvoidanceWeight,
             LandingWeight = LandingWeight,
+            FlowmapWeight = FlowmapWeight,
 
             MaxSpeed = MaxSpeed,
             MinSpeed = MinSpeed,
@@ -117,6 +120,7 @@ class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
             CohesionWeight = authoring.CohesionWeight,
             AvoidanceWeight = authoring.AvoidanceWeight,
             LandingWeight = authoring.LandingWeight,
+            FlowmapWeight = authoring.FlowmapWeight,
 
             MaxSpeed = authoring.MaxSpeed,
             MinSpeed = authoring.MinSpeed,
