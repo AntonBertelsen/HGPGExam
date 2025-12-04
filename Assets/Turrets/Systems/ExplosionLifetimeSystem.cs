@@ -19,6 +19,7 @@ partial struct ExplosionLifetimeSystem : ISystem
     {
 
         var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+        var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
 
 
         foreach (var (explosion, transform, entity) in
@@ -26,16 +27,17 @@ partial struct ExplosionLifetimeSystem : ISystem
         {
 
             explosion.ValueRW.timeLived += SystemAPI.Time.DeltaTime;
-            transform.ValueRW.Scale = explosion.ValueRO.timeLived * 2;
+            //transform.ValueRW.Scale = explosion.ValueRO.timeLived * 2;
 
-            if (explosion.ValueRO.timeLived < 0.2)
+            if (!explosion.ValueRO.hasExploded)
             {
+                explosion.ValueRW.hasExploded = true;
                 foreach (var (boidTrans, boidVel, boidTag) in SystemAPI
                              .Query<RefRW<LocalTransform>, RefRW<Velocity>, RefRW<BoidTag>>().WithAll<BoidTag>())
                 {
                     var direction = boidTrans.ValueRO.Position - transform.ValueRO.Position;
                     var dist = math.length(direction);
-
+                    
                     if (dist < transform.ValueRO.Scale*2)
                     {
                         boidTag.ValueRW.dead = true;

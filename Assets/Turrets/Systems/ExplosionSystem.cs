@@ -29,7 +29,7 @@ partial struct ExplosionSystem : ISystem
             if (bullet.ValueRO.timeLived >= bullet.ValueRO.timeToExplode)
             {
                 var newEntity = ecb.Instantiate(bullet.ValueRO.explosion);
-
+                
                 ecb.AddComponent(newEntity, new LocalTransform
                 {
                     Position = transform.ValueRO.Position,
