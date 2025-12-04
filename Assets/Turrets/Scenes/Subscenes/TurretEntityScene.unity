@@ -177,6 +177,63 @@ MonoBehaviour:
   MaxSteerForce: 0.5
   BoundaryBounds: 20
   BoundaryTurnDistance: 1
+--- !u!1001 &419438816
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 20.31
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -4.38
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -9.34
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1638315225896080130, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7038103493150413060, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
+      propertyPath: m_Name
+      value: Turret (1)
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: e928fe6c177f2fd4a92710f04b889224, type: 3}
 --- !u!1 &1845638624
 GameObject:
   m_ObjectHideFlags: 0
@@ -268,7 +325,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefab: {fileID: 6155034886795492701, guid: 2654e18d45b8c49c1ab3f9d584f0953f, type: 3}
-  count: 100
+  count: 20000
 --- !u!1001 &2091354044
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -334,3 +391,4 @@ SceneRoots:
   - {fileID: 1845638626}
   - {fileID: 65777990}
   - {fileID: 2091354044}
+  - {fileID: 419438816}

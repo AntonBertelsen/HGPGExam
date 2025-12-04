@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 [BurstCompile]
@@ -9,6 +10,7 @@ using Unity.Transforms;
 [UpdateBefore(typeof(MoveSystem))]
 public partial struct DeathSystem : ISystem
 {
+    private int frameCount;
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -19,13 +21,18 @@ public partial struct DeathSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
-        foreach (var (boidTag, entity) in SystemAPI
-                     .Query<RefRW<BoidTag>>().WithAll<BoidTag>().WithEntityAccess())
+        frameCount++;
+        if (frameCount % 60 == 0)
         {
-            if (boidTag.ValueRW.dead) ecb.DestroyEntity(entity);
+            var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+            foreach (var (boidTag, transform,entity) in SystemAPI
+                         .Query<RefRW<BoidTag>, RefRO<LocalToWorld>>().WithAll<BoidTag>().WithEntityAccess())
+            {
+                if (boidTag.ValueRW.dead && transform.ValueRO.Position.y < -10) ecb.DestroyEntity(entity);
+            }
+
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
         }
-        ecb.Playback(state.EntityManager);
-        ecb.Dispose();
     }
 }

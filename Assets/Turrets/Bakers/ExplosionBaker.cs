@@ -17,6 +17,7 @@ class ExplosionAuthoringBaker : Baker<ExplosionBaker>
         {
             lifeExpetancy = authoring.lifeExpetancy,
             timeLived = authoring.timeLived,
+            hasExploded = false,
         });
     }
 }

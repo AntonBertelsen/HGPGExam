@@ -224,7 +224,6 @@ partial struct TurretSystem : ISystem
 
     public void FireCannon(ref SystemState state, Entity cannon, Entity bullet, float3 direction)
     {
-
             var cannonTransform = state.EntityManager.GetComponentData<LocalToWorld>(cannon);
 
             Entity newEntity = state.EntityManager.Instantiate(bullet);
@@ -238,11 +237,9 @@ partial struct TurretSystem : ISystem
             newTransform.ValueRW.Position = cannonTransform.Position;
             newTransform.ValueRW.Position += dir * 1.5f;
             newTransform.ValueRW.Rotation = cannonTransform.Rotation;
-                
-
+            
             var newVelocity = SystemAPI.GetComponentRW<BulletVelocity>(newEntity);
             newVelocity.ValueRW.Value = direction / math.length(direction) * 40;
-        
     }
 
     public float3 AquireTargetFromList(RefRW<SpatialGridData> gridData, NativeArray<LocalTransform> birds, NativeHashMap<int, int> potentialTargets)
