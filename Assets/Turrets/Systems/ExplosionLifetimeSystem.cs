@@ -27,7 +27,7 @@ partial struct ExplosionLifetimeSystem : ISystem
         {
 
             explosion.ValueRW.timeLived += SystemAPI.Time.DeltaTime;
-            //transform.ValueRW.Scale = explosion.ValueRO.timeLived * 2;
+            transform.ValueRW.Scale = explosion.ValueRO.timeLived * 2;
 
             if (!explosion.ValueRO.hasExploded)
             {
