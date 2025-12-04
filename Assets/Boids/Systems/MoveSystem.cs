@@ -30,7 +30,7 @@ public partial struct MoveJob : IJobEntity
 
         if (boidTag.dead)
         {
-            transform.Position += new float3(0, -3, 0) * DeltaTime;
+            transform.Position += new float3(0, -6, 0) * DeltaTime;
             transform.Rotation = Quaternion.LookRotation(velocity.Value);
         }
         else
