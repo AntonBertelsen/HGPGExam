@@ -411,7 +411,7 @@ MonoBehaviour:
   MaxSpeed: 15
   MinSpeed: 10
   MaxSteerForce: 0.5
-  BoundaryBounds: 60
+  BoundaryBounds: 120
   BoundaryTurnDistance: 5
 --- !u!4 &358177141
 Transform:
@@ -1099,7 +1099,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefab: {fileID: 8449456927542751932, guid: cfb403e1c2eaf394fbd95384223bda1d, type: 3}
-  count: 20000
+  count: 200000
 --- !u!4 &1381902471
 Transform:
   m_ObjectHideFlags: 0
