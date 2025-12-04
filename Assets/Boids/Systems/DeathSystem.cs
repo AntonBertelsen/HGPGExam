@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 [BurstCompile]
@@ -24,10 +25,10 @@ public partial struct DeathSystem : ISystem
         if (frameCount % 60 == 0)
         {
             var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
-            foreach (var (boidTag, entity) in SystemAPI
-                         .Query<RefRW<BoidTag>>().WithAll<BoidTag>().WithEntityAccess())
+            foreach (var (boidTag, transform,entity) in SystemAPI
+                         .Query<RefRW<BoidTag>, RefRO<LocalToWorld>>().WithAll<BoidTag>().WithEntityAccess())
             {
-                if (boidTag.ValueRW.dead) ecb.DestroyEntity(entity);
+                if (boidTag.ValueRW.dead && transform.ValueRO.Position.y < -10) ecb.DestroyEntity(entity);
             }
 
             ecb.Playback(state.EntityManager);
