@@ -2,12 +2,15 @@
 using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
+using Unity.Physics;
 using UnityEngine.Serialization;
 
 public class LandingAreaBaker : MonoBehaviour
 {
     public float spotSpacing = 1f;
     public float maxInclineDegrees = 45f;
+    public float clearanceRadius = 0.5f; // Size of the bird
+    public LayerMask obstacleLayerMask;
 }
 
 public struct LandingAreaMeshBlob
@@ -22,6 +25,8 @@ public struct LandingArea : IComponentData
     public float SpotSpacing;
     public float MaxInclineDegrees;
     public BlobAssetReference<LandingAreaMeshBlob> MeshBlob;
+    public float ClearanceRadius;
+    public CollisionFilter ObstacleFilter;
 }
 
 public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
@@ -66,12 +71,21 @@ public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
 
         var blobRef = builder.CreateBlobAssetReference<LandingAreaMeshBlob>(Allocator.Persistent);
         builder.Dispose();
+        
+        var filter = new CollisionFilter
+        {
+            BelongsTo = (uint)CollisionFilter.Default.BelongsTo,
+            CollidesWith = (uint)baker.obstacleLayerMask.value, // Only collide with obstacles
+            GroupIndex = 0
+        };
 
         AddComponent(entity, new LandingArea
         {
             SpotSpacing = baker.spotSpacing,
             MaxInclineDegrees = baker.maxInclineDegrees,
-            MeshBlob = blobRef
+            MeshBlob = blobRef,
+            ClearanceRadius = baker.clearanceRadius,
+            ObstacleFilter = filter
         });
     }
 }

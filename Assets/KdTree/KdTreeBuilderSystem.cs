@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Physics;
 using Unity.Transforms;
 
 [BurstCompile]
@@ -12,14 +13,25 @@ public partial struct KdTreeBuilderSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
+        state.RequireForUpdate<PhysicsWorldSingleton>();
         _landingAreaQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<LandingArea, LocalToWorld>()
             .Build(ref state);
+        
+        // This means OnUpdate will not run until this query has at least 1 entity. That prevents the issue of landing areas in the subscene not being baked
+        // unless it is already loaded in the editor
+        state.RequireForUpdate(_landingAreaQuery);
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        var physicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>().CollisionWorld;
+        
+        // 1. Get Entities array along with components
+        var entities = _landingAreaQuery.ToEntityArray(Allocator.TempJob);
+        
+        
         var landingAreas = _landingAreaQuery.ToComponentDataArray<LandingArea>(Allocator.TempJob);
         var localToWorlds = _landingAreaQuery.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
 
@@ -31,7 +43,7 @@ public partial struct KdTreeBuilderSystem : ISystem
             var landingArea = landingAreas[i];
             var localToWorld = localToWorlds[i];
             
-            CalculateLandingSpots(landingArea, localToWorld, allLandingSpotsPos, allLandingSpotsNorm);
+            CalculateLandingSpots(entities[i], landingArea, localToWorld, physicsWorld, allLandingSpotsPos, allLandingSpotsNorm);
         }
 
         using var posArray = allLandingSpotsPos.ToArray(Allocator.Temp);
@@ -41,6 +53,10 @@ public partial struct KdTreeBuilderSystem : ISystem
         state.EntityManager.AddComponentData(state.SystemHandle, tree);
 
         state.Enabled = false;
+        
+        entities.Dispose();
+        landingAreas.Dispose();
+        localToWorlds.Dispose();
     }
 
     [BurstCompile]
@@ -49,7 +65,7 @@ public partial struct KdTreeBuilderSystem : ISystem
         state.EntityManager.RemoveComponent<KdTree>(state.SystemHandle);
     }
 
-    private void CalculateLandingSpots(LandingArea landingArea, LocalToWorld localToWorld, NativeList<float3> outPositions, NativeList<float3> outNormals)
+    private void CalculateLandingSpots(Entity self, LandingArea landingArea, LocalToWorld localToWorld, CollisionWorld collisionWorld, NativeList<float3> outPositions, NativeList<float3> outNormals)
     {
         ref var vertices = ref landingArea.MeshBlob.Value.Vertices;
         ref var normals = ref landingArea.MeshBlob.Value.Normals;
@@ -100,6 +116,37 @@ public partial struct KdTreeBuilderSystem : ISystem
 
                     if (math.dot(worldNormal, up) >= upThreshold)
                     {
+                        // --- UPDATED CLEARANCE CHECK ---
+                        
+                        // 1. Lift check origin slightly
+                        float3 checkOrigin = pos + (worldNormal * landingArea.ClearanceRadius);
+
+                        var input = new PointDistanceInput
+                        {
+                            Position = checkOrigin,
+                            MaxDistance = landingArea.ClearanceRadius * 0.9f, 
+                            Filter = landingArea.ObstacleFilter 
+                        };
+
+                        // 2. Use Custom Collector
+                        var collector = new IgnoreSelfCollector(self);
+                        
+                        // 3. Run Query
+                        // This iterates through potential hits. 
+                        // It calls collector.AddHit(). If AddHit returns true, it stops.
+                        collisionWorld.CalculateDistance(input, ref collector);
+
+                        // 4. Check Result
+                        // If FoundHit is true, we hit something that WASN'T us.
+                        if (collector.FoundHit)
+                        {
+                            continue; // Blocked by foreign object
+                        }
+                        
+                        // If we are here, we either hit nothing, or only hit ourselves.
+                        // Valid Spot!
+                        
+                        
                         passingPoints.Add(pos);
                         passingNormals.Add(worldNormal);
                     }
@@ -130,5 +177,43 @@ public partial struct KdTreeBuilderSystem : ISystem
                 outNormals.Add(normal);
             }
         }
+    }
+}
+
+
+// A custom collector that stops at the first hit NOT belonging to a specific entity
+public struct IgnoreSelfCollector : ICollector<DistanceHit>
+{
+    private Entity _self;
+    public bool FoundHit { get; private set; }
+    public DistanceHit ClosestHit { get; private set; }
+
+    public IgnoreSelfCollector(Entity self)
+    {
+        _self = self;
+        FoundHit = false;
+        ClosestHit = default;
+        MaxFraction = 1.0f; // Check full distance
+        NumHits = 0;
+    }
+
+    // Required by Interface
+    public bool EarlyOutOnFirstHit => true; 
+    public float MaxFraction { get; private set; }
+    public int NumHits { get; private set; }
+
+    public bool AddHit(DistanceHit hit)
+    {
+        // THE LOGIC:
+        // If the thing we hit is US, ignore it and return false (keep searching).
+        if (hit.Entity == _self)
+        {
+            return false; 
+        }
+
+        // If it's NOT us, we found a valid obstacle!
+        ClosestHit = hit;
+        FoundHit = true;
+        return true; // Stop searching, we are blocked.
     }
 }
