@@ -32,6 +32,7 @@ public partial struct BoidSystem : ISystem
     {
         var config = SystemAPI.GetSingleton<BoidSettings>();
         var gridData = SystemAPI.GetSingleton<SpatialGridData>();
+        var boundary = SystemAPI.GetSingleton<BoundaryComponent>();
         
         FlowFieldData flowField = default;
         bool hasFlowField = SystemAPI.TryGetSingleton(out flowField);
@@ -56,7 +57,8 @@ public partial struct BoidSystem : ISystem
             DeltaTime = SystemAPI.Time.DeltaTime,
             
             HasFlowField = hasFlowField,
-            FlowField = flowField
+            FlowField = flowField,
+            Bounds = boundary
         };
 
         // Schedule the job and chain the disposal of our temporary arrays.
@@ -88,6 +90,8 @@ public partial struct BoidJob : IJobEntity
     public bool HasFlowField;
     [ReadOnly] public FlowFieldData FlowField;
 
+    [ReadOnly] public BoundaryComponent Bounds;
+
     // This 'Execute' method runs for EACH boid.
     private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag, in LocalTransform currentTransform,
         in ObstacleAvoidance obstacleAvoidance, in Lander lander)
@@ -99,7 +103,7 @@ public partial struct BoidJob : IJobEntity
         
         // If we are moving faster than the boid physics allows, we are "tumbling".
         // In this state, we ignore boid rules and simply decelerate due to drag.
-        if (currentSpeed > Config.MaxSpeed)
+        if (currentSpeed > Config.MaxSpeed * 1.2f)
         {
             // Calculate drag. A value of 2.0f means they recover control quickly. 
             // 0.5f means they fly helpless for longer.
@@ -181,11 +185,27 @@ public partial struct BoidJob : IJobEntity
             acceleration += separation;
         }
         
+        float3 boundaryDir = CalculateBoundaryForce(currentTransform.Position, Bounds);
+        if (math.lengthsq(boundaryDir) > 0)
+        {
+            float3 steerForce = SteerTowards(boundaryDir, currentVelocity.Value, Config.MaxSteerForce * 10f); // Allow 10x stronger steering for walls
+            acceleration += steerForce * Config.BoundaryWeight;
+        }
+        
+        
         if (HasFlowField)
         {
             // Sample the field at our current position
-            float3 flowForce = GetFlowFieldForce(currentTransform.Position);
-            acceleration += flowForce * Config.FlowmapWeight;
+            //float3 flowForce = GetFlowFieldForce(currentTransform.Position);
+            //acceleration += flowForce * Config.FlowmapWeight;
+            float3 flowDir = GetFlowFieldForce(currentTransform.Position);
+            if (math.lengthsq(flowDir) > 0)
+            {
+                float3 steerForce = SteerTowards(flowDir, currentVelocity.Value, Config.MaxSteerForce * 5f);
+                acceleration += steerForce * Config.FlowmapWeight;
+            }
+            
+            
             
             //if (math.lengthsq(flowForce) > 0.0f)
             //{
@@ -218,10 +238,17 @@ public partial struct BoidJob : IJobEntity
                                 math.normalizesafe(currentVelocity.Value);
     }
 
+    private float3 SteerTowards(float3 vector, float3 velocity, float maxSteer)
+    {
+        // "vector" is the desired direction/position
+        var desired = math.normalizesafe(vector) * Config.MaxSpeed;
+        var steer = desired - velocity;
+        return math.normalizesafe(steer) * math.min(math.length(steer), maxSteer);
+    }
+    
     private float3 SteerTowards(float3 vector, float3 velocity)
     {
-        var v = math.normalizesafe(vector) * Config.MaxSpeed - velocity;
-        return math.normalizesafe(v) * math.min(math.length(vector), Config.MaxSteerForce);
+        return SteerTowards(vector, velocity, Config.MaxSteerForce);
     }
     
     // --- TRILINEAR INTERPOLATION SAMPLING ---
@@ -278,5 +305,56 @@ public partial struct BoidJob : IJobEntity
 
         // Blend along Z (Final result)
         return y0 * invW.z + y1 * w.z;
+    }
+    
+    private float3 CalculateBoundaryForce(float3 pos, BoundaryComponent bounds)
+    {
+        float3 center = bounds.Center;
+        float3 extents = bounds.Size * 0.5f; 
+        float3 offset = pos - center;
+        float3 desiredVel = float3.zero;
+
+        // X Axis
+        if (offset.x > extents.x - bounds.PositiveMargins.x)
+        {
+            float t = (offset.x - (extents.x - bounds.PositiveMargins.x)) / bounds.PositiveMargins.x;
+            desiredVel.x = -1; // Push Left
+        }
+        else if (offset.x < -extents.x + bounds.NegativeMargins.x)
+        {
+            float t = ((-extents.x + bounds.NegativeMargins.x) - offset.x) / bounds.NegativeMargins.x;
+            desiredVel.x = 1; // Push Right
+        }
+
+        // Y Axis
+        if (offset.y > extents.y - bounds.PositiveMargins.y)
+        {
+            desiredVel.y = -1; // Push Down
+        }
+        else if (offset.y < -extents.y + bounds.NegativeMargins.y)
+        {
+            desiredVel.y = 1; // Push Up
+        }
+
+        // Z Axis
+        if (offset.z > extents.z - bounds.PositiveMargins.z)
+        {
+            desiredVel.z = -1; // Push Back
+        }
+        else if (offset.z < -extents.z + bounds.NegativeMargins.z)
+        {
+            desiredVel.z = 1; // Push Forward
+        }
+        
+        // Normalize so it behaves like a standard steering vector
+        if (math.lengthsq(desiredVel) > 0)
+        {
+            desiredVel = math.normalize(desiredVel);
+            // We return a vector pointing AWAY from the wall.
+            // The main loop multiplies this by Config.BoundaryWeight
+            return desiredVel;
+        }
+
+        return float3.zero;
     }
 }

@@ -14,12 +14,13 @@ public partial struct BoundarySystem : ISystem
     {
         state.RequireForUpdate<BoidSettings>();
         state.RequireForUpdate<BoundaryComponent>();
+        state.Enabled = false;
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var config = SystemAPI.GetSingleton<BoidSettings>();
+        /*var config = SystemAPI.GetSingleton<BoidSettings>();
         var boundary = SystemAPI.GetSingleton<BoundaryComponent>();
 
         var job = new BoundaryJob
@@ -27,7 +28,7 @@ public partial struct BoundarySystem : ISystem
             Config = config,
             Bounds = boundary
         };
-        state.Dependency = job.ScheduleParallel(state.Dependency);
+        state.Dependency = job.ScheduleParallel(state.Dependency);*/
     }
 }
 

@@ -20,8 +20,7 @@ public struct BoidSettings : IComponentData
     public float MinSpeed;
     public float MaxSteerForce;
 
-    public float BoundaryBounds;
-    public float BoundaryTurnDistance;
+    public float BoundaryWeight;
 }
 
 class BoidSettingsBaker : MonoBehaviour
@@ -44,9 +43,8 @@ class BoidSettingsBaker : MonoBehaviour
     public float MinSpeed = 10f;
     public float MaxSteerForce = 0.5f;
 
-    [Header("Boundaries")]
-    public float BoundaryBounds = 50f;
-    public float BoundaryTurnDistance = 10f; // Boids will start turning when 10 units from a wall
+    [Header("Boundary")]
+    public float BoundaryWeight = 50f;
     
     // --- Runtime ECS sync members ---
     EntityManager em;
@@ -97,8 +95,7 @@ class BoidSettingsBaker : MonoBehaviour
             MinSpeed = MinSpeed,
             MaxSteerForce = MaxSteerForce,
 
-            BoundaryBounds = BoundaryBounds,
-            BoundaryTurnDistance = BoundaryTurnDistance
+            BoundaryWeight = BoundaryWeight
         };
     }
 }
@@ -126,8 +123,7 @@ class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
             MinSpeed = authoring.MinSpeed,
             MaxSteerForce = authoring.MaxSteerForce,
 
-            BoundaryBounds = authoring.BoundaryBounds,
-            BoundaryTurnDistance = authoring.BoundaryTurnDistance
+            BoundaryWeight = authoring.BoundaryWeight,
         });
     }
 }
