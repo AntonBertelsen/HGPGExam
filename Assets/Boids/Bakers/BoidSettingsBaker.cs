@@ -14,13 +14,13 @@ public struct BoidSettings : IComponentData
     public float CohesionWeight;
     public float AvoidanceWeight;
     public float LandingWeight;
+    public float FlowmapWeight;
 
     public float MaxSpeed;
     public float MinSpeed;
     public float MaxSteerForce;
 
-    public float BoundaryBounds;
-    public float BoundaryTurnDistance;
+    public float BoundaryWeight;
 }
 
 class BoidSettingsBaker : MonoBehaviour
@@ -36,15 +36,68 @@ class BoidSettingsBaker : MonoBehaviour
     public float CohesionWeight = 3.0f;
     public float AvoidanceWeight = 6.0F;
     public float LandingWeight = 4.0F;
+    public float FlowmapWeight = 1.0f;
 
     [Header("Limits")]
     public float MaxSpeed = 15f;
     public float MinSpeed = 10f;
     public float MaxSteerForce = 0.5f;
 
-    [Header("Boundaries")]
-    public float BoundaryBounds = 50f;
-    public float BoundaryTurnDistance = 10f; // Boids will start turning when 10 units from a wall
+    [Header("Boundary")]
+    public float BoundaryWeight = 50f;
+    
+    // --- Runtime ECS sync members ---
+    EntityManager em;
+    Entity settingsEntity;
+
+    void Start()
+    {
+        // if there's no DOTS world (edit mode), bail out quietly
+        if (World.DefaultGameObjectInjectionWorld == null)
+            return;
+
+        em = World.DefaultGameObjectInjectionWorld.EntityManager;
+
+        // Try to find an existing BoidSettings singleton entity (created during conversion/bake)
+        var query = em.CreateEntityQuery(typeof(BoidSettings));
+        if (!query.IsEmpty)
+        {
+            settingsEntity = query.GetSingletonEntity();
+        }
+    }
+
+    void Update()
+    {
+        // don't try to sync if we don't have an EntityManager (e.g. in edit mode)
+        if (em == null || settingsEntity == Entity.Null) return;
+
+        // Every frame write inspector values into the ECS singleton
+        em.SetComponentData(settingsEntity, ToBoidSettings());
+    }
+
+    BoidSettings ToBoidSettings()
+    {
+        return new BoidSettings
+        {
+            ViewRadius = ViewRadius,
+            SeparationRadius = SeparationRadius,
+            AvoidanceRadius = AvoidanceRadius,
+            LandingRadius = LandingRadius,
+
+            SeparationWeight = SeparationWeight,
+            AlignmentWeight = AlignmentWeight,
+            CohesionWeight = CohesionWeight,
+            AvoidanceWeight = AvoidanceWeight,
+            LandingWeight = LandingWeight,
+            FlowmapWeight = FlowmapWeight,
+
+            MaxSpeed = MaxSpeed,
+            MinSpeed = MinSpeed,
+            MaxSteerForce = MaxSteerForce,
+
+            BoundaryWeight = BoundaryWeight
+        };
+    }
 }
 
 class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
@@ -64,13 +117,13 @@ class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
             CohesionWeight = authoring.CohesionWeight,
             AvoidanceWeight = authoring.AvoidanceWeight,
             LandingWeight = authoring.LandingWeight,
+            FlowmapWeight = authoring.FlowmapWeight,
 
             MaxSpeed = authoring.MaxSpeed,
             MinSpeed = authoring.MinSpeed,
             MaxSteerForce = authoring.MaxSteerForce,
 
-            BoundaryBounds = authoring.BoundaryBounds,
-            BoundaryTurnDistance = authoring.BoundaryTurnDistance
+            BoundaryWeight = authoring.BoundaryWeight,
         });
     }
 }

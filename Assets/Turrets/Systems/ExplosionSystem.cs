@@ -1,10 +1,7 @@
-using System.Linq;
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
+using UnityEngine.VFX;
 
 partial struct ExplosionSystem : ISystem
 {
@@ -14,17 +11,16 @@ partial struct ExplosionSystem : ISystem
         state.RequireForUpdate<BulletComponent>();   
     }
 
-    [BurstCompile]
+    //[BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
 
         var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
 
-        foreach (var (bullet, transform, bullets) in
+        foreach (var (bullet, transform, bulletEntity) in
                  SystemAPI.Query<RefRW<BulletComponent>, RefRW<LocalTransform>>().WithEntityAccess())
         {
-
             bullet.ValueRW.timeLived += SystemAPI.Time.DeltaTime;
             if (bullet.ValueRO.timeLived >= bullet.ValueRO.timeToExplode)
             {
@@ -36,12 +32,19 @@ partial struct ExplosionSystem : ISystem
                     Rotation = transform.ValueRO.Rotation,
                     Scale = 1f
                 });
-                
         
-                ecb.DestroyEntity(bullets);
+                // To allow the smoke trail effect to fade out we do not destroy the entity right away
+                ecb.RemoveComponent<BulletVelocity>(bulletEntity);
+                ecb.RemoveComponent<BulletTag>(bulletEntity);
+                ecb.RemoveComponent<BulletComponent>(bulletEntity);
+                ecb.AddComponent(bulletEntity, new PendingDespawn { TimeRemaining = 2.0f });
+                
+                // Stop the smoke trail from spawning
+                // TODO: Work out how to do this in a burst supported way
+                VisualEffect smokeTrail = state.EntityManager.GetComponentObject<VisualEffect>(bulletEntity);
+                smokeTrail.SetBool("Spawn", false);
             }
         }
-        
         
         ecb.Playback(state.EntityManager);
         ecb.Dispose();

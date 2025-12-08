@@ -19,17 +19,9 @@ class BoidAuthoringBaker : Baker<BoidBaker>
         AddComponent<CellHashComponent>(entity);
         AddComponent<ObstacleAvoidance>(entity);
         AddComponent(entity, new Lander { Energy = Lander.MaxEnergy });
-        
-        // Animation components
-        AddComponent(entity, new BirdAnimation
-        {
-            AnimationFrame = 0f,
-            Scale = 1f,
-            BaseSpeed = 1f
-        });
-
         AddComponent<BirdAnimationFrameProperty>(entity);
         AddComponent<BirdScaleProperty>(entity);
+        AddComponent<BirdPerchedProperty>(entity);
         AddComponent<SimpleLODTag>(entity);
     }
 }

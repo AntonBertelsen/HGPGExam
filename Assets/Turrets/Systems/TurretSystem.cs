@@ -129,7 +129,7 @@ partial struct TurretSystem : ISystem
                 if (!targetBirdDR.Equals(float3.zero))
                     FireCannon(ref state, turret.ValueRW.cannon_DR, turret.ValueRO.bullet, turret.ValueRO.cannon_DR_targetingDirection);
             }
-
+            
             // MOVE TURRET BASE //
             direction.y = 0;
             transform.ValueRW.Rotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
@@ -184,7 +184,7 @@ partial struct TurretSystem : ISystem
         
         if (tempRotation.x > 10 || tempRotation.x < -180)
         {
-            turretTransform.Rotation = turretTransform.Rotation;
+            //turretTransform.Rotation = turretTransform.Rotation;
             returnValue.Item1 = turretPreviousTargetingDirection;
         } else
         {
@@ -210,7 +210,7 @@ partial struct TurretSystem : ISystem
         
         if (cannonTempRotation.x > 30 || cannonTempRotation.x < -180)
         {
-            cannonTransform.Rotation = cannonTransform.Rotation;
+            //cannonTransform.Rotation = cannonTransform.Rotation;
             returnValue.Item2 = cannonPreviousTargetingDirection;
         } else
         {

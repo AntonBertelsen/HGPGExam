@@ -5,6 +5,8 @@ class ExplosionBaker : MonoBehaviour
 {
     public float timeLived;
     public float lifeExpetancy;
+    public float explosionForce = 2.0f;
+    public float explosionDistance = 20.0f;
 }
 
 class ExplosionAuthoringBaker : Baker<ExplosionBaker>
@@ -18,6 +20,8 @@ class ExplosionAuthoringBaker : Baker<ExplosionBaker>
             lifeExpetancy = authoring.lifeExpetancy,
             timeLived = authoring.timeLived,
             hasExploded = false,
+            explosionForce = authoring.explosionForce,
+            explosionDistance = authoring.explosionDistance
         });
     }
 }

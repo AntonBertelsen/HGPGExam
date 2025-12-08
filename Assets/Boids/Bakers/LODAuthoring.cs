@@ -7,6 +7,7 @@ public class SimpleLODAuthoring : MonoBehaviour
     public Mesh LOD0;
     public Mesh LOD1;
     public Mesh LOD2;
+    public Mesh LOD3;
 
     [Header("Material")]
     public Material Material;
@@ -14,6 +15,7 @@ public class SimpleLODAuthoring : MonoBehaviour
     [Header("LOD Distances")]
     public float LOD1Distance = 50f;
     public float LOD2Distance = 100f;
+    public float LOD3Distance = 150f;
 }
 
 public class SimpleLODBaker : Baker<SimpleLODAuthoring>
@@ -27,8 +29,10 @@ public class SimpleLODBaker : Baker<SimpleLODAuthoring>
             MeshLOD0 = authoring.LOD0,
             MeshLOD1 = authoring.LOD1,
             MeshLOD2 = authoring.LOD2,
+            MeshLOD3 = authoring.LOD3,
             LOD1Distance = authoring.LOD1Distance,
-            LOD2Distance = authoring.LOD2Distance
+            LOD2Distance = authoring.LOD2Distance,
+            LOD3Distance = authoring.LOD3Distance
         });
     }
 }

@@ -21,13 +21,13 @@ public partial struct ObstacleAvoidanceSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var job = new ObstacleAvoidanceJob
+        /*var job = new ObstacleAvoidanceJob
         {
             Config = SystemAPI.GetSingleton<BoidSettings>(),
             PhysicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>(),
             Directions = _directions,
         };
-        state.Dependency = job.ScheduleParallel(state.Dependency);
+        state.Dependency = job.ScheduleParallel(state.Dependency);*/
     }
 }
 

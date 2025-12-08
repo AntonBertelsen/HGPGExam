@@ -15,7 +15,7 @@ class BulletAuthoringBaker : Baker<BulletBaker>
         var entity = GetEntity(TransformUsageFlags.Dynamic);
         AddComponent(entity, new BulletVelocity
             {
-                Value = 10
+                Value = 10 //TODO: 10 is assigned to float3. What is going on?
             });
         AddComponent<BulletTag>(entity);
         AddComponent(entity, new BulletComponent

@@ -25,7 +25,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _AnimationTexture:
-        m_Texture: {fileID: 2800000, guid: f2658ebb2b1ded14f8b3193a08fba3a9, type: 3}
+        m_Texture: {fileID: 2800000, guid: 4d22ef3a02e600c4c8328dfcd348549e, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BaseMap:
@@ -56,6 +56,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _FlyingAnimation:
+        m_Texture: {fileID: 2800000, guid: 430d60e9aa044c34f90ac2215667dea9, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -70,6 +74,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _ParallaxMap:
         m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _PerchedAnimation:
+        m_Texture: {fileID: 2800000, guid: aeecd5b3b78d60e41a06ac8b260fdad2, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SpecGlossMap:
@@ -93,7 +101,7 @@ Material:
     - _AddPrecomputedVelocity: 0
     - _AlphaClip: 0
     - _AlphaToMask: 0
-    - _AnimationFrame: 10.53
+    - _AnimationFrame: 0
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
     - _BumpScale: 1
@@ -109,6 +117,7 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _MaxVal: 0.2279486
     - _Metallic: 0
     - _Mode: 0
     - _NumFrames: 24
@@ -132,8 +141,8 @@ Material:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 0, b: 0, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _NormalisationMax: {r: -0.04, g: 0.13, b: 0.14, a: 0}
-    - _NormalisationMin: {r: 0.24, g: -0.32, b: -0.44, a: 0}
+    - _NormalisationMax: {r: 0.071921505, g: 0.21304439, b: 0.38560474, a: 0}
+    - _NormalisationMin: {r: -0.08, g: -0.17894465, b: -0.30963692, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

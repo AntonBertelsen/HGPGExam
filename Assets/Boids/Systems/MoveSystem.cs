@@ -28,7 +28,7 @@ public partial struct MoveJob : IJobEntity
     public void Execute(ref LocalTransform transform, ref BoidTag boidTag, in Velocity velocity)
     {
 
-        if (boidTag.dead)
+        if (boidTag.dead) //TODO: I think this should be done with tags / components instead even though it causes a structral change. We can add rigidbodies to the birds and disable the bird behaviour.
         {
             transform.Position += new float3(0, -6, 0) * DeltaTime;
             transform.Rotation = Quaternion.LookRotation(velocity.Value);
@@ -47,12 +47,12 @@ public partial struct MoveJob : IJobEntity
 
             // 1. Calculate the target rotation based on the velocity vector
             quaternion targetRotation = quaternion.LookRotationSafe(velocity.Value, math.up());
-
+            
             //Todo: Precalculate and move out of job
-            quaternion modelCorrection = quaternion.Euler(math.radians(-90), 0, math.radians(-90));
-
-            targetRotation = math.mul(targetRotation, modelCorrection);
-
+            //quaternion modelCorrection = quaternion.Euler(math.radians(-90), 0, math.radians(-90));
+            
+            //targetRotation = math.mul(targetRotation, modelCorrection);
+            
             // 2. Smoothly interpolate from the current rotation to the target rotation
             // math.slerp is used for spherical interpolation, which is correct for rotations.
             transform.Rotation = math.slerp(transform.Rotation, targetRotation, 5.0f * DeltaTime);
