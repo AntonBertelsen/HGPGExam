@@ -98,19 +98,36 @@ public class FlowFieldAuthoring : MonoBehaviour
                             out Vector3 penDir, out float penDist))
                         {
                             // Inside! Push out violently.
-                            finalVector += (float3)penDir * ObstacleWeight * 5.0f; 
+                            finalVector += (float3)penDir * ObstacleWeight * 2.0f; 
                         }
                         else 
                         {
-                            // B. Proximity Avoidance
+                            // B. Proximity Avoidance with TANGENT SLIDE
                             float3 closestPoint = hitCol.ClosestPoint(cellCenter);
                             float dist = math.distance(cellCenter, closestPoint);
-                            
-                            if (dist < checkRadius) 
+
+                            if (dist < checkRadius)
                             {
+                                // 1. Calculate the Normal (Directly away from wall)
+                                float3 normal = math.normalizesafe(cellCenter - closestPoint);
+            
+                                // 2. Calculate the "Up" Tangent
+                                // Use the helper function we defined
+                                float3 upVector = new float3(0, 1, 0);
+                                
+                                // Projecting on plane to extract the upwards tangent
+                                float dot = math.dot(upVector, normal);
+                                float3 tangentUp = math.normalizesafe(upVector - (normal * dot));
+
+                                // 3. Blend them
+                                // If we are very close, use more Normal (Push away).
+                                // If we are further out, use more Tangent (Slide along/up).
                                 float strength = 1.0f - (dist / checkRadius);
-                                float3 pushDir = math.normalizesafe(cellCenter - closestPoint);
-                                finalVector += pushDir * strength * ObstacleWeight; 
+            
+                                // Blend: 40% Push Out, 60% Slide Up.
+                                float3 slideForce = math.lerp(normal, tangentUp, 0.6f);
+
+                                finalVector += slideForce * strength * ObstacleWeight;
                             }
                         }
                     }
