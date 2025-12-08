@@ -33,7 +33,6 @@ partial struct TurretSystem : ISystem
         foreach (var (turret, transform, toWorld) in
                  SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>())
         {
-
             
             // TARGETING //
             var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
@@ -41,7 +40,18 @@ partial struct TurretSystem : ISystem
             var keyCountsUL = new NativeHashMap<int, int>(10, Allocator.Temp);
             var keyCountsDL = new NativeHashMap<int, int>(10, Allocator.Temp);
             var keyCountsDR = new NativeHashMap<int, int>(10, Allocator.Temp);
-
+            var countBase = 0;
+            var countUR = 0;
+            var countUL = 0;
+            var countDL = 0;
+            var countDR = 0;
+            
+                
+            var keyBase = 0;
+            var keyUR = 0;
+            var keyUL = 0;
+            var keyDL = 0;
+            var keyDR = 0;
             
             var keyValues = gridData.ValueRO.CellMap.GetKeyValueArrays(Allocator.Temp);
             for (int i = 0; i < keyValues.Keys.Length; i++)
@@ -55,48 +65,121 @@ partial struct TurretSystem : ISystem
                 if (math.length(dir) > turret.ValueRO.viewRadius) continue; 
                 //Add to main platform hashmap
                 if (keyCounts.TryGetValue(key, out int count))
+                {
                     keyCounts[key] = count + 1;
+                    if (count + 1 > countBase)
+                    {
+                        countBase = count + 1;
+                        keyBase = key;
+                    }
+                }
                 else
+                {
                     keyCounts.Add(key, 1);
+                    if (countBase == 0)
+                    {
+                        countBase = 1;
+                        keyBase = key;
+                    }
+                }
+
                 //Add to turret hashmaps
                 if (dir.z > 0 && dir.y > 0)
                 {
-                    if (keyCountsUR.TryGetValue(key, out int count_))
-                        keyCountsUR[key] = count_ + 1;
+                    if (keyCountsUL.TryGetValue(key, out int count_))
+                    {
+                        keyCountsUL[key] = count_ + 1;
+                        if (count_ + 1 > countUL)
+                        {
+                            countUL = count_ + 1;
+                            keyUL = key;
+                        }
+                    }
                     else
-                        keyCountsUR.Add(key, 1);
+                    {
+                        keyCountsUL.Add(key, 1);
+                        if (countUL == 0)
+                        {
+                            countUL = 1;
+                            keyUL = key;
+                        }
+                    }
                 }
                 else if (dir.z < 0 && dir.y > 0)
                 {
-                    if (keyCountsUL.TryGetValue(key, out int count_))
-                        keyCountsUL[key] = count_ + 1;
+                    if (keyCountsUR.TryGetValue(key, out int count_))
+                    {
+                        keyCountsUR[key] = count_ + 1;
+                        if (count_ + 1 > countUR)
+                        {
+                            countUR = count_ + 1;
+                            keyUR = key;
+                        }
+                    }
                     else
-                        keyCountsUL.Add(key, 1);
+                    {
+                        keyCountsUR.Add(key, 1);
+                        if (countUR == 0)
+                        {
+                            countUR = 1;
+                            keyUR = key;
+                        }
+                    }
                 }
                 else if (dir.z < 0 && dir.y < 0)
                 {
                     if (keyCountsDL.TryGetValue(key, out int count_))
+                    {
                         keyCountsDL[key] = count_ + 1;
+                        if (count_ + 1 > countDL)
+                        {
+                            countDL = count_ + 1;
+                            keyDL = key;
+                        }
+                    }
                     else
+                    {
                         keyCountsDL.Add(key, 1);
+                        if (countDL == 0)
+                        {
+                            countDL = 1;
+                            keyDL = key;
+                        }
+                    }
                 }
                 else if(dir.z > 0 && dir.y < 0) {
                     if (keyCountsDR.TryGetValue(key, out int count_))
+                    {
                         keyCountsDR[key] = count_ + 1;
+                        if (count_ + 1 > countDR)
+                        {
+                            countDR = count_ + 1;
+                            keyDR = key;
+                        }
+                    }
                     else
+                    {
                         keyCountsDR.Add(key, 1);
+                        if (countDR == 0)
+                        {
+                            countDR = 1;
+                            keyDR = key;
+                        }
+                    }
                 }
             }
             
+            
+            
             //Target cluster with most birds for main platform
-            var targetBirdPos = AquireTargetFromList(gridData, birds, keyCounts);
+            var targetBirdPos = countBase != 0 ? AquireTargetFromList(gridData, birds, keyBase) : new float3(0,0,0);
             var direction = targetBirdPos - transform.ValueRO.Position;
             //Target cluster with most birds for main platform
 
-            var targetBirdUL = AquireTargetFromList(gridData, birds, keyCountsUL);
-            var targetBirdUR = AquireTargetFromList(gridData, birds, keyCountsUR);
-            var targetBirdDL = AquireTargetFromList(gridData, birds, keyCountsDL);
-            var targetBirdDR = AquireTargetFromList(gridData, birds, keyCountsDR);
+            var targetBirdUR = countUL != 0 ? AquireTargetFromList(gridData, birds, keyUL) : new float3(0,0,0);
+            var targetBirdUL = countUR != 0 ? AquireTargetFromList(gridData, birds, keyUR) : new float3(0,0,0);
+            var targetBirdDL = countDL != 0 ? AquireTargetFromList(gridData, birds, keyDL) : new float3(0,0,0);
+            var targetBirdDR = countDR != 0 ? AquireTargetFromList(gridData, birds, keyDR) : new float3(0,0,0);
             // TARGETING //
 
             if (!targetBirdUL.Equals(float3.zero))
@@ -221,7 +304,7 @@ partial struct TurretSystem : ISystem
 
         return returnValue;
     }
-
+    [BurstCompile]
     public void FireCannon(ref SystemState state, Entity cannon, Entity bullet, float3 direction)
     {
             var cannonTransform = state.EntityManager.GetComponentData<LocalToWorld>(cannon);
@@ -241,26 +324,10 @@ partial struct TurretSystem : ISystem
             var newVelocity = SystemAPI.GetComponentRW<BulletVelocity>(newEntity);
             newVelocity.ValueRW.Value = direction / math.length(direction) * 40;
     }
-
-    public float3 AquireTargetFromList(RefRW<SpatialGridData> gridData, NativeArray<LocalTransform> birds, NativeHashMap<int, int> potentialTargets)
+    [BurstCompile]
+    public float3 AquireTargetFromList(RefRW<SpatialGridData> gridData, NativeArray<LocalTransform> birds, int key)
     {
-        int keyWithMostBoids = 0;
-        int mostBoids = 0;
-        var keyArray = potentialTargets.GetKeyValueArrays(Allocator.Temp);
-        for (int i = 0; i < keyArray.Keys.Length; i++)
-        {
-            int key = keyArray.Keys[i];
-            int count = keyArray.Values[i];
-
-            if (count > mostBoids)
-            {
-                mostBoids = count;
-                keyWithMostBoids = key;
-            }
-        }
-        if (mostBoids == 0) return new float3(0,0,0);
-        gridData.ValueRO.CellMap.TryGetFirstValue(keyWithMostBoids, out var firsValue, out var it);
-        keyArray.Dispose();
+        gridData.ValueRO.CellMap.TryGetFirstValue(key, out var firsValue, out var it);
         return birds[firsValue].Position;
         
     }
