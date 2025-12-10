@@ -20,7 +20,7 @@ partial struct TurretSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        _random = new Unity.Mathematics.Random();
+        _random = new Unity.Mathematics.Random(42);
     }
 
     [BurstCompile]
