@@ -45,6 +45,7 @@ class TurretBakerBaker : Baker<TurretBaker>
             target_DL = float3.zero,
             target_DR = float3.zero,
             target_center = float3.zero,
+            frameCounter = 0,
             turret_UR = GetEntity(authoring.turret_UR, TransformUsageFlags.Dynamic),
             cannon_UR = GetEntity(authoring.cannon_UR, TransformUsageFlags.Dynamic),
             turret_UL = GetEntity(authoring.turret_UL, TransformUsageFlags.Dynamic),

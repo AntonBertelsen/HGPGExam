@@ -26,6 +26,8 @@ public struct TurretComponent : IComponentData
     public float3 target_DR;
     public float3 target_DL;
     public float3 target_center;
+
+    public int frameCounter;
     
     public Entity turret_UR;   
     public Entity cannon_UR;  

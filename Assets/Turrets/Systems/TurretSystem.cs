@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Security.Cryptography;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -7,6 +8,8 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Random = System.Random;
+
 [UpdateAfter(typeof(SpatialHashingSystem))]
 
 partial struct TurretSystem : ISystem
@@ -26,7 +29,6 @@ partial struct TurretSystem : ISystem
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
-        frameCount++;
 
 
         if (birds.Length == 0)
@@ -40,14 +42,16 @@ partial struct TurretSystem : ISystem
                  SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>()
                      .WithEntityAccess())
             {
-
+                turret.ValueRW.frameCounter += RandomNumberGenerator.GetInt32(1, 5);
                 // TARGETING //
-                if (frameCount % 60 == 0)
+                if (turret.ValueRO.frameCounter % 60 == 0)
                 {
-            
-                
+                    if (turret.ValueRW.frameCounter > 100000)
+                    {
+                        turret.ValueRW.frameCounter = 0;
+                    }
 
-                var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
+                    var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
                 var keyCountsUR = new NativeHashMap<int, int>(10, Allocator.Temp);
                 var keyCountsUL = new NativeHashMap<int, int>(10, Allocator.Temp);
                 var keyCountsDL = new NativeHashMap<int, int>(10, Allocator.Temp);
