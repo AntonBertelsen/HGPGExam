@@ -24,6 +24,10 @@ public partial struct DeathSystem : ISystem
         frameCount++;
         if (frameCount % 60 == 0)
         {
+            if (frameCount > 100000)
+            {
+                frameCount = 0;
+            }
             var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
             foreach (var (boidTag, transform,entity) in SystemAPI
                          .Query<RefRW<BoidTag>, RefRO<LocalToWorld>>().WithAll<BoidTag>().WithEntityAccess())

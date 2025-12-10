@@ -20,7 +20,13 @@ public struct TurretComponent : IComponentData
     public float3 cannon_UL_targetingDirection;
     public float3 cannon_DR_targetingDirection;
     public float3 cannon_DL_targetingDirection;
-
+    
+    public float3 target_UR;
+    public float3 target_UL;
+    public float3 target_DR;
+    public float3 target_DL;
+    public float3 target_center;
+    
     public Entity turret_UR;   
     public Entity cannon_UR;  
     public Entity turret_UL;   
