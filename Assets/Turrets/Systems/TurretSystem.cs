@@ -15,11 +15,12 @@ using Random = System.Random;
 partial struct TurretSystem : ISystem
 {
     private int frameCount;
+    private Unity.Mathematics.Random _random;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        
+        _random = new Unity.Mathematics.Random();
     }
 
     [BurstCompile]
@@ -41,8 +42,8 @@ partial struct TurretSystem : ISystem
         foreach (var (turret, transform, toWorld, turretEntity) in
                  SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>()
                      .WithEntityAccess())
-            {
-                turret.ValueRW.frameCounter += RandomNumberGenerator.GetInt32(1, 5);
+        {
+            turret.ValueRW.frameCounter += _random.NextInt(1, 5);
                 // TARGETING //
                 if (turret.ValueRO.frameCounter % 60 == 0)
                 {
