@@ -5,6 +5,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Random = Unity.Mathematics.Random;
 
 [BurstCompile]
 [UpdateBefore(typeof(MoveSystem))] // Calculate new velocity before it's used for movement
@@ -119,8 +120,8 @@ public partial struct BoidJob : IJobEntity
             // while you are tumbling through the air at 100mph.
             return; 
         }
-        
-        
+
+        var random = new Random((uint)currentEntity.Index);
         var flockSize = 0;
         var flockCentre = float3.zero;
         var flockVelocity = float3.zero;
@@ -128,7 +129,7 @@ public partial struct BoidJob : IJobEntity
 
         var cell = Hash.GetCellCoords(currentTransform.Position);
         var neighborCount = 0;
-        const int maxNeighbors = 8;
+        const int maxNeighbors = 4;
         const int consideredNeighbors = maxNeighbors * 8;
 
         for (var dx = -1; dx <= 1; dx++)
@@ -164,8 +165,7 @@ public partial struct BoidJob : IJobEntity
         var i = 0;
         var next = (int)math.floor(inc);
 
-        var randomNum = (currentEntity.Index * (int)math.csum(currentTransform.Position));
-        var iteration = (randomNum % 7) switch
+        var iteration = random.NextInt(0, 7) switch
         {
             0 => new int3(1, 1, 1),
             1 => new int3(-1, 1, 1),
@@ -175,15 +175,18 @@ public partial struct BoidJob : IJobEntity
             5 => new int3(1, -1, -1),
             _ => new int3(1, 1, -1),
         };
+
+        // Always check our cell first because separation is most important
+        System.ReadOnlySpan<int> offsets = stackalloc int[3] {0, 1, -1};
         
-        for (var dxi = -1; dxi <= 1; dxi++)
-        for (var dyi = -1; dyi <= 1; dyi++)
-        for (var dzi = -1; dzi <= 1; dzi++)
+        foreach (var dxi in offsets)
+        foreach (var dyi in offsets)
+        foreach (var dzi in offsets)
         {
             var dx = dxi * iteration.x;
             var dy = dyi * iteration.y;
             var dz = dzi * iteration.z;
-            var neighborCell = cell + (randomNum % 6) switch
+            var neighborCell = cell + random.NextInt(0, 6) switch
             {
                 0 => new int3(dx, dy, dz),
                 1 => new int3(dx, dz, dy),
