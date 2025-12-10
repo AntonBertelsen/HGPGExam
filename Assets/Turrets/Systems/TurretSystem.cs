@@ -11,6 +11,8 @@ using UnityEngine.UIElements;
 
 partial struct TurretSystem : ISystem
 {
+    private int frameCount;
+
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -20,217 +22,236 @@ partial struct TurretSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag,LocalTransform>().Build();
+        var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag, LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
-        
+        frameCount++;
+
+
         if (birds.Length == 0)
         {
             return;
         }
-        
+
+
+
         foreach (var (turret, transform, toWorld, turretEntity) in
-                 SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>().WithEntityAccess())
-        {
+                 SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>()
+                     .WithEntityAccess())
+            {
+
+                // TARGETING //
+                if (frameCount % 60 == 0)
+                {
+            
+                
+
+                var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
+                var keyCountsUR = new NativeHashMap<int, int>(10, Allocator.Temp);
+                var keyCountsUL = new NativeHashMap<int, int>(10, Allocator.Temp);
+                var keyCountsDL = new NativeHashMap<int, int>(10, Allocator.Temp);
+                var keyCountsDR = new NativeHashMap<int, int>(10, Allocator.Temp);
+                var countBase = 0;
+                var countUR = 0;
+                var countUL = 0;
+                var countDL = 0;
+                var countDR = 0;
+
+
+                var keyBase = 0;
+                var keyUR = 0;
+                var keyUL = 0;
+                var keyDL = 0;
+                var keyDR = 0;
+
+                var keyValues = gridData.ValueRO.CellMap.GetKeyValueArrays(Allocator.Temp);
+                for (int i = 0; i < keyValues.Keys.Length; i++)
+                {
+                    int key = keyValues.Keys[i];
+
+                    var region = gridData.ValueRO.CellMap.TryGetFirstValue(key, out var value, out var ite);
+                    var birdPos = birds[value].Position;
+                    var dir = birdPos - transform.ValueRO.Position;
+
+                    if (math.length(dir) > turret.ValueRO.viewRadius) continue;
+                    //Add to main platform hashmap
+                    if (keyCounts.TryGetValue(key, out int count))
+                    {
+                        keyCounts[key] = count + 1;
+                        if (count + 1 > countBase)
+                        {
+                            countBase = count + 1;
+                            keyBase = key;
+                        }
+                    }
+                    else
+                    {
+                        keyCounts.Add(key, 1);
+                        if (countBase == 0)
+                        {
+                            countBase = 1;
+                            keyBase = key;
+                        }
+                    }
+
+                    //Add to turret hashmaps
+                    if (dir.z > 0 && dir.y > 0)
+                    {
+                        if (keyCountsUL.TryGetValue(key, out int count_))
+                        {
+                            keyCountsUL[key] = count_ + 1;
+                            if (count_ + 1 > countUL)
+                            {
+                                countUL = count_ + 1;
+                                keyUL = key;
+                            }
+                        }
+                        else
+                        {
+                            keyCountsUL.Add(key, 1);
+                            if (countUL == 0)
+                            {
+                                countUL = 1;
+                                keyUL = key;
+                            }
+                        }
+                    }
+                    else if (dir.z < 0 && dir.y > 0)
+                    {
+                        if (keyCountsUR.TryGetValue(key, out int count_))
+                        {
+                            keyCountsUR[key] = count_ + 1;
+                            if (count_ + 1 > countUR)
+                            {
+                                countUR = count_ + 1;
+                                keyUR = key;
+                            }
+                        }
+                        else
+                        {
+                            keyCountsUR.Add(key, 1);
+                            if (countUR == 0)
+                            {
+                                countUR = 1;
+                                keyUR = key;
+                            }
+                        }
+                    }
+                    else if (dir.z < 0 && dir.y < 0)
+                    {
+                        if (keyCountsDL.TryGetValue(key, out int count_))
+                        {
+                            keyCountsDL[key] = count_ + 1;
+                            if (count_ + 1 > countDL)
+                            {
+                                countDL = count_ + 1;
+                                keyDL = key;
+                            }
+                        }
+                        else
+                        {
+                            keyCountsDL.Add(key, 1);
+                            if (countDL == 0)
+                            {
+                                countDL = 1;
+                                keyDL = key;
+                            }
+                        }
+                    }
+                    else if (dir.z > 0 && dir.y < 0)
+                    {
+                        if (keyCountsDR.TryGetValue(key, out int count_))
+                        {
+                            keyCountsDR[key] = count_ + 1;
+                            if (count_ + 1 > countDR)
+                            {
+                                countDR = count_ + 1;
+                                keyDR = key;
+                            }
+                        }
+                        else
+                        {
+                            keyCountsDR.Add(key, 1);
+                            if (countDR == 0)
+                            {
+                                countDR = 1;
+                                keyDR = key;
+                            }
+                        }
+                    }
+                }
+
+            
+
+             //Target cluster with most birds for main platform
+             turret.ValueRW.target_center = countBase != 0 ? AquireTargetFromList(gridData, birds, keyBase) : new float3();
+            //Target cluster with most birds for main platform
+
+            turret.ValueRW.target_UR = countUL != 0 ? AquireTargetFromList(gridData, birds, keyUL) : float3.zero;
+            turret.ValueRW.target_UL = countUR != 0 ? AquireTargetFromList(gridData, birds, keyUR) : float3.zero;
+            turret.ValueRW.target_DL = countDL != 0 ? AquireTargetFromList(gridData, birds, keyDL) : float3.zero;
+            turret.ValueRW.target_DR = countDR != 0 ? AquireTargetFromList(gridData, birds, keyDR) : float3.zero;
             
             // TARGETING //
-            var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
-            var keyCountsUR = new NativeHashMap<int, int>(10, Allocator.Temp);
-            var keyCountsUL = new NativeHashMap<int, int>(10, Allocator.Temp);
-            var keyCountsDL = new NativeHashMap<int, int>(10, Allocator.Temp);
-            var keyCountsDR = new NativeHashMap<int, int>(10, Allocator.Temp);
-            var countBase = 0;
-            var countUR = 0;
-            var countUL = 0;
-            var countDL = 0;
-            var countDR = 0;
-            
-                
-            var keyBase = 0;
-            var keyUR = 0;
-            var keyUL = 0;
-            var keyDL = 0;
-            var keyDR = 0;
-            
-            var keyValues = gridData.ValueRO.CellMap.GetKeyValueArrays(Allocator.Temp);
-            for (int i = 0; i < keyValues.Keys.Length; i++)
-            {
-                int key = keyValues.Keys[i];
-
-                var region = gridData.ValueRO.CellMap.TryGetFirstValue(key, out var value, out var ite);
-                var birdPos = birds[value].Position;
-                var dir = birdPos - transform.ValueRO.Position;
-                
-                if (math.length(dir) > turret.ValueRO.viewRadius) continue; 
-                //Add to main platform hashmap
-                if (keyCounts.TryGetValue(key, out int count))
-                {
-                    keyCounts[key] = count + 1;
-                    if (count + 1 > countBase)
-                    {
-                        countBase = count + 1;
-                        keyBase = key;
-                    }
-                }
-                else
-                {
-                    keyCounts.Add(key, 1);
-                    if (countBase == 0)
-                    {
-                        countBase = 1;
-                        keyBase = key;
-                    }
-                }
-
-                //Add to turret hashmaps
-                if (dir.z > 0 && dir.y > 0)
-                {
-                    if (keyCountsUL.TryGetValue(key, out int count_))
-                    {
-                        keyCountsUL[key] = count_ + 1;
-                        if (count_ + 1 > countUL)
-                        {
-                            countUL = count_ + 1;
-                            keyUL = key;
-                        }
-                    }
-                    else
-                    {
-                        keyCountsUL.Add(key, 1);
-                        if (countUL == 0)
-                        {
-                            countUL = 1;
-                            keyUL = key;
-                        }
-                    }
-                }
-                else if (dir.z < 0 && dir.y > 0)
-                {
-                    if (keyCountsUR.TryGetValue(key, out int count_))
-                    {
-                        keyCountsUR[key] = count_ + 1;
-                        if (count_ + 1 > countUR)
-                        {
-                            countUR = count_ + 1;
-                            keyUR = key;
-                        }
-                    }
-                    else
-                    {
-                        keyCountsUR.Add(key, 1);
-                        if (countUR == 0)
-                        {
-                            countUR = 1;
-                            keyUR = key;
-                        }
-                    }
-                }
-                else if (dir.z < 0 && dir.y < 0)
-                {
-                    if (keyCountsDL.TryGetValue(key, out int count_))
-                    {
-                        keyCountsDL[key] = count_ + 1;
-                        if (count_ + 1 > countDL)
-                        {
-                            countDL = count_ + 1;
-                            keyDL = key;
-                        }
-                    }
-                    else
-                    {
-                        keyCountsDL.Add(key, 1);
-                        if (countDL == 0)
-                        {
-                            countDL = 1;
-                            keyDL = key;
-                        }
-                    }
-                }
-                else if(dir.z > 0 && dir.y < 0) {
-                    if (keyCountsDR.TryGetValue(key, out int count_))
-                    {
-                        keyCountsDR[key] = count_ + 1;
-                        if (count_ + 1 > countDR)
-                        {
-                            countDR = count_ + 1;
-                            keyDR = key;
-                        }
-                    }
-                    else
-                    {
-                        keyCountsDR.Add(key, 1);
-                        if (countDR == 0)
-                        {
-                            countDR = 1;
-                            keyDR = key;
-                        }
-                    }
-                }
-            }
-            
-            
-            
-            //Target cluster with most birds for main platform
-            var targetBirdPos = countBase != 0 ? AquireTargetFromList(gridData, birds, keyBase) : new float3();
-            var direction = targetBirdPos - transform.ValueRO.Position;
-            //Target cluster with most birds for main platform
-
-            var targetBirdUR = countUL != 0 ? AquireTargetFromList(gridData, birds, keyUL) : float3.zero;
-            var targetBirdUL = countUR != 0 ? AquireTargetFromList(gridData, birds, keyUR) : float3.zero;
-            var targetBirdDL = countDL != 0 ? AquireTargetFromList(gridData, birds, keyDL) : float3.zero;
-            var targetBirdDR = countDR != 0 ? AquireTargetFromList(gridData, birds, keyDR) : float3.zero;
-            // TARGETING //
-            var urHasMoved = false;
-            var ulHasMoved = false;
-            var dlHasMoved = false;
-            var drHasMoved = false;
-            
-            if (!targetBirdUL.Equals(float3.zero))
-                (turret.ValueRW.turret_UL_targetingDirection, turret.ValueRW.cannon_UL_targetingDirection, ulHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_UL_targetingDirection, turret.ValueRO.cannon_UL_targetingDirection,turret.ValueRW.turret_UL, turret.ValueRW.cannon_UL, targetBirdUL, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation, true, false);
-
-            if (!targetBirdUR.Equals(float3.zero))
-                (turret.ValueRW.turret_UR_targetingDirection, turret.ValueRW.cannon_UR_targetingDirection, urHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_UR_targetingDirection, turret.ValueRO.cannon_UR_targetingDirection, turret.ValueRW.turret_UR, turret.ValueRW.cannon_UR, targetBirdUR, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation,true, true);
-
-            if (!targetBirdDL.Equals(float3.zero))
-                (turret.ValueRW.turret_DL_targetingDirection, turret.ValueRW.cannon_DL_targetingDirection, dlHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_DL_targetingDirection, turret.ValueRO.cannon_DL_targetingDirection, turret.ValueRW.turret_DL, turret.ValueRW.cannon_DL, targetBirdDL, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation, false, false);
-
-            if (!targetBirdDR.Equals(float3.zero))
-                (turret.ValueRW.turret_DR_targetingDirection, turret.ValueRW.cannon_DR_targetingDirection, drHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_DR_targetingDirection, turret.ValueRO.cannon_DR_targetingDirection, turret.ValueRW.turret_DR, turret.ValueRW.cannon_DR, targetBirdDR, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation,false, true);
-
-            turret.ValueRW.lastFireTime += SystemAPI.Time.DeltaTime;
-            if (turret.ValueRO.lastFireTime >= turret.ValueRO.fireRate)
-            {
-                turret.ValueRW.lastFireTime = 0;
-                
-                if (!targetBirdUL.Equals(float3.zero) && urHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_UR, turret.ValueRO.bullet, turret.ValueRO.cannon_UR_targetingDirection);
-                if (!targetBirdUR.Equals(float3.zero) && ulHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_UL, turret.ValueRO.bullet, turret.ValueRO.cannon_UL_targetingDirection);
-                if (!targetBirdDL.Equals(float3.zero) && dlHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_DL, turret.ValueRO.bullet, turret.ValueRO.cannon_DL_targetingDirection);
-                if (!targetBirdDR.Equals(float3.zero) && drHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_DR, turret.ValueRO.bullet, turret.ValueRO.cannon_DR_targetingDirection);
-            }
-            
-            // MOVE TURRET BASE //
-            direction.y = 0;
-            transform.ValueRW.Rotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
-            float3 forward = math.mul(transform.ValueRW.Rotation , new float3(0, 0, 1));
-            turret.ValueRW.targetingDirection = forward;
-            // MOVE TURRET BASE //
-            
             keyCounts.Dispose();
             keyCountsUR.Dispose();
             keyCountsUL.Dispose();
             keyCountsDL.Dispose();
             keyCountsDR.Dispose();
 
-            keyValues.Dispose();
+            keyValues.Dispose(); 
+                }
+            var urHasMoved = false;
+            var ulHasMoved = false;
+            var dlHasMoved = false;
+            var drHasMoved = false;
+            
+            if (!turret.ValueRW.target_UL.Equals(float3.zero))
+                (turret.ValueRW.turret_UL_targetingDirection, turret.ValueRW.cannon_UL_targetingDirection, ulHasMoved) = 
+                    MoveTurret(ref state, turret.ValueRO.turret_UL_targetingDirection, turret.ValueRO.cannon_UL_targetingDirection,turret.ValueRW.turret_UL, turret.ValueRW.cannon_UL, turret.ValueRW.target_UL, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation, true, false);
+
+            if (!turret.ValueRW.target_UR.Equals(float3.zero))
+                (turret.ValueRW.turret_UR_targetingDirection, turret.ValueRW.cannon_UR_targetingDirection, urHasMoved) = 
+                    MoveTurret(ref state, turret.ValueRO.turret_UR_targetingDirection, turret.ValueRO.cannon_UR_targetingDirection, turret.ValueRW.turret_UR, turret.ValueRW.cannon_UR, turret.ValueRW.target_UR, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation,true, true);
+
+            if (!turret.ValueRW.target_DL.Equals(float3.zero))
+                (turret.ValueRW.turret_DL_targetingDirection, turret.ValueRW.cannon_DL_targetingDirection, dlHasMoved) = 
+                    MoveTurret(ref state, turret.ValueRO.turret_DL_targetingDirection, turret.ValueRO.cannon_DL_targetingDirection, turret.ValueRW.turret_DL, turret.ValueRW.cannon_DL, turret.ValueRW.target_DL, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation, false, false);
+
+            if (!turret.ValueRW.target_DR.Equals(float3.zero))
+                (turret.ValueRW.turret_DR_targetingDirection, turret.ValueRW.cannon_DR_targetingDirection, drHasMoved) = 
+                    MoveTurret(ref state, turret.ValueRO.turret_DR_targetingDirection, turret.ValueRO.cannon_DR_targetingDirection, turret.ValueRW.turret_DR, turret.ValueRW.cannon_DR, turret.ValueRW.target_DR, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation,false, true);
+
+            turret.ValueRW.lastFireTime += SystemAPI.Time.DeltaTime;
+            if (turret.ValueRO.lastFireTime >= turret.ValueRO.fireRate)
+            {
+                turret.ValueRW.lastFireTime = 0;
+                
+                if (!turret.ValueRW.target_UL.Equals(float3.zero) && urHasMoved)
+                    FireCannon(ref state, turret.ValueRW.cannon_UR, turret.ValueRO.bullet, turret.ValueRO.cannon_UR_targetingDirection);
+                if (!turret.ValueRW.target_UR.Equals(float3.zero) && ulHasMoved)
+                    FireCannon(ref state, turret.ValueRW.cannon_UL, turret.ValueRO.bullet, turret.ValueRO.cannon_UL_targetingDirection);
+                if (!turret.ValueRW.target_DL.Equals(float3.zero) && dlHasMoved)
+                    FireCannon(ref state, turret.ValueRW.cannon_DL, turret.ValueRO.bullet, turret.ValueRO.cannon_DL_targetingDirection);
+                if (!turret.ValueRW.target_DR.Equals(float3.zero) && drHasMoved)
+                    FireCannon(ref state, turret.ValueRW.cannon_DR, turret.ValueRO.bullet, turret.ValueRO.cannon_DR_targetingDirection);
+            }
+            
+            // MOVE TURRET BASE //
+            if (!turret.ValueRW.target_center.Equals(float3.zero))
+            {
+                var direction = turret.ValueRW.target_center - transform.ValueRO.Position;
+                direction.y = 0;
+                transform.ValueRW.Rotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
+                float3 forward = math.mul(transform.ValueRW.Rotation , new float3(0, 0, 1));
+                turret.ValueRW.targetingDirection = forward;
+            }
+
+
+            // MOVE TURRET BASE //
+            
+
             
 
         }
