@@ -7,19 +7,31 @@ using Unity.Transforms;
 [BurstCompile]
 public partial struct BirdAnimationSystem : ISystem
 {
+    public void OnCreate(ref SystemState state)
+    {
+        state.RequireForUpdate<KdTree>();
+    }
+
     public void OnUpdate(ref SystemState state)
     {
         // Pass global time for the wave functions
-        float time = (float)SystemAPI.Time.ElapsedTime;
-        float deltaTime = SystemAPI.Time.DeltaTime;
+        var time = (float)SystemAPI.Time.ElapsedTime;
+        var deltaTime = SystemAPI.Time.DeltaTime;
 
-        var job = new BirdAnimationJob
+        var animationJob = new BirdAnimationJob
         {
             Time = time,
-            DeltaTime = deltaTime
+            DeltaTime = deltaTime,
         };
-        
-        job.ScheduleParallel();
+
+        var perchJob = new BirdPerchAnimationJob
+        {
+            KdTree = SystemAPI.GetSingleton<KdTree>(),
+            DeltaTime = deltaTime,
+        };
+
+        state.Dependency = animationJob.ScheduleParallel(state.Dependency);
+        state.Dependency = perchJob.ScheduleParallel(state.Dependency);
     }
 }
 
@@ -29,88 +41,106 @@ public partial struct BirdAnimationJob : IJobEntity
     public float Time;
     public float DeltaTime;
 
-    void Execute(
+    private void Execute(
         [EntityIndexInQuery] int entityIndex,
-        // Removed 'ref BirdAnimation anim' as requested. 
-        // We now use the properties themselves to persist state.
         ref BirdAnimationFrameProperty frameProp,
         ref BirdScaleProperty scaleProp,
         in Velocity vel)
     {
-        // 0. Generate "Personality"
-        // Create a deterministic random seed based on the bird's index.
-        // This ensures the same bird behaves consistently, but different birds behave uniquely.
-        var random = Unity.Mathematics.Random.CreateFromIndex((uint)entityIndex);
+        var random = Random.CreateFromIndex((uint)entityIndex);
 
-        // Personality Factors:
-        // freqOffset: Variance in wing beat frequency (+/- 15%)
-        float freqOffset = random.NextFloat(0.85f, 1.15f); 
-        // glideThreshold: How "wide" the sine wave flap bursts are. 
-        // Low val = flaps often (nervous). High val = long glides (calm).
-        float glideThreshold = random.NextFloat(0.4f, 0.9f); 
-        // diveTolerance: At what negative speed do they tuck wings?
-        // -5 (tucks early) to -25 (flaps even while diving)
-        float diveTolerance = random.NextFloat(-25.0f, -5.0f);
-        // effortBias: Offsets the urgency. 
-        // Positive = always feels urgency (flaps more). Negative = lazy.
-        float effortBias = random.NextFloat(-0.1f, 0.2f);
+        var freqOffset = random.NextFloat(0.85f, 1.15f);
+        var glideThreshold = random.NextFloat(0.4f, 0.9f);
+        var diveTolerance = random.NextFloat(-25.0f, -5.0f);
+        var effortBias = random.NextFloat(-0.1f, 0.2f);
 
+        var v = vel.Value;
+        var vertSpeed = v.y;
 
-        // 1. Analyze Velocity
-        float3 v = vel.Value;
-        float vertSpeed = v.y; 
-        
-        // RESTORED: Original scale factor of 100.0f. 
-        float speed = math.length(v) * 100.0f;
+        var speed = math.length(v) * 100.0f;
 
-        // 2. Calculate "Urgency" (0 to 1)
-        // We add effortBias here. A bird with high bias feels urgency even when flying level.
-        float perceivedVertSpeed = vertSpeed + (effortBias * 5.0f);
-        float urgency = math.smoothstep(-2.0f, 5.0f, perceivedVertSpeed);
+        var perceivedVertSpeed = vertSpeed + (effortBias * 5.0f);
+        var urgency = math.smoothstep(-2.0f, 5.0f, perceivedVertSpeed);
 
-        // 3. Generate the "Intermittent Cruise" Pattern
-        // Flap... Flap... Glide...
-        float cruiseFreq = 3.0f * freqOffset; // Apply frequency personality
-        // Add a large random offset to phase so they are desynchronized
-        float cruisePhase = (Time * cruiseFreq) + (entityIndex * 13.13f);
-        float baseSine = math.sin(cruisePhase);
-        
-        // Sharpen sine: The 'glideThreshold' now determines how much of the wave is "flap" vs "coast".
-        float intermittentSignal = math.smoothstep(0.0f, glideThreshold, baseSine);
+        var cruiseFreq = 3.0f * freqOffset;
+        var cruisePhase = (Time * cruiseFreq) + (entityIndex * 13.13f);
+        var baseSine = math.sin(cruisePhase);
+        var intermittentSignal = math.smoothstep(0.0f, glideThreshold, baseSine);
 
-        // 4. Calculate Target Intensity
-        float highEffortSignal = math.lerp(1.0f, 1.3f, urgency);
-        
-        // Blend: If urgency is high, override the intermittent signal.
-        float targetIntensity = math.max(intermittentSignal, urgency * highEffortSignal);
+        var highEffortSignal = math.lerp(1.0f, 1.3f, urgency);
+        var targetIntensity = math.max(intermittentSignal, urgency * highEffortSignal);
 
-        // 5. Dive Suppression
-        // Uses individual diveTolerance. 
-        // Some birds will stop flapping at -5 speed, others will keep going until -25.
-        float diveFactor = math.smoothstep(0.0f, diveTolerance, vertSpeed);
+        var diveFactor = math.smoothstep(0.0f, diveTolerance, vertSpeed);
         targetIntensity = math.lerp(targetIntensity, 0.0f, diveFactor);
+        var currentScale = scaleProp.Value;
+        var dampSpeed = targetIntensity > currentScale ? 10f : 2f;
+        var newScale = math.lerp(currentScale, targetIntensity, DeltaTime * dampSpeed);
 
-        // 6. Smooth the Scale (Animation Damping)
-        float currentScale = scaleProp.Value;
-        
-        // Flapping starts snappy (10f), stopping/coasting acts floaty (2f)
-        float dampSpeed = targetIntensity > currentScale ? 10f : 2f; 
-        float newScale = math.lerp(currentScale, targetIntensity, DeltaTime * dampSpeed);
-        
         scaleProp.Value = newScale;
 
-        // 7. Calculate Animation Playback Speed
-        // RESTORED: Base speed 1.0f as requested.
-        float baseSpeed = 1.0f; 
-        
-        // Apply freqOffset to the multiplier as well, so smaller/faster flapping birds animate faster.
-        float flapRateMultiplier = 0.5f + (urgency * 1.0f) + (speed * 0.1f);
+        const float baseSpeed = 1.0f;
+        var flapRateMultiplier = 0.5f + (urgency * 1.0f) + (speed * 0.1f);
         flapRateMultiplier *= freqOffset;
+        var effectivePlaybackSpeed = math.lerp(0.1f, flapRateMultiplier, math.saturate(newScale));
 
-        // Don't freeze completely (0.1) to keep wings "alive" even when coasting
-        float effectivePlaybackSpeed = math.lerp(0.1f, flapRateMultiplier, math.saturate(newScale));
-        
-        // Integrate frame
         frameProp.Value += baseSpeed * effectivePlaybackSpeed * DeltaTime;
+    }
+}
+
+public partial struct BirdPerchAnimationJob : IJobEntity
+{
+    [ReadOnly] public KdTree KdTree;
+    [ReadOnly] public float DeltaTime;
+
+    private void Execute(
+        in Lander lander,
+        ref LocalTransform transform,
+        ref BirdAnimationFrameProperty frameProp,
+        ref BirdScaleProperty scaleProp,
+        ref BirdPerchedProperty perchProp)
+    {
+        var normal = KdTree.GetNormal(lander.TargetIndex);
+        var currentForward = math.rotate(transform.Rotation, math.forward());
+        var projectedForward = math.normalizesafe(currentForward - normal * math.dot(currentForward, normal));
+
+        if (math.lengthsq(projectedForward) < 0.01f)
+        {
+            projectedForward = math.forward();
+        }
+
+        var distSq = math.distancesq(transform.Position, lander.Target);
+        var targetRot = quaternion.LookRotationSafe(projectedForward, normal);
+
+        if (distSq < 0.005f && perchProp.Value > 0.95f)
+        {
+            transform.Position = lander.Target;
+            transform.Rotation = targetRot;
+
+            perchProp.Value = 1.0f;
+            scaleProp.Value = 0.0f;
+
+            return;
+        }
+
+        var lerpSpeed = 5.0f * DeltaTime;
+        transform.Position = math.lerp(transform.Position, lander.Target, lerpSpeed);
+        transform.Rotation = math.slerp(transform.Rotation, targetRot, lerpSpeed);
+
+        if (distSq > 0.01f)
+        {
+            scaleProp.Value = math.lerp(scaleProp.Value, 1.0f, lerpSpeed * 2.0f);
+            perchProp.Value = math.lerp(perchProp.Value, 0.0f, lerpSpeed * 2.0f);
+            frameProp.Value += 60.0f * DeltaTime;
+        }
+        else
+        {
+            scaleProp.Value = math.lerp(scaleProp.Value, 0.0f, lerpSpeed * 5.0f);
+            perchProp.Value = math.lerp(perchProp.Value, 1.0f, lerpSpeed * 3.0f);
+
+            if (scaleProp.Value > 0.01f)
+            {
+                frameProp.Value += 30.0f * DeltaTime;
+            }
+        }
     }
 }

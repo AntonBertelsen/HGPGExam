@@ -21,7 +21,6 @@ class BoidAuthoringBaker : Baker<BoidBaker>
         AddComponent(entity, new Lander { Energy = Lander.MaxEnergy });
         AddComponent<BirdAnimationFrameProperty>(entity);
         AddComponent<BirdScaleProperty>(entity);
-        AddComponent<BirdPerchedProperty>(entity);
         AddComponent<SimpleLODTag>(entity);
     }
 }
