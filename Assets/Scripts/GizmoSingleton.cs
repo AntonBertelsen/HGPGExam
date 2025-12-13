@@ -4,15 +4,15 @@ using UnityEngine.Serialization;
 
 public class GizmoSingleton : MonoBehaviour
 {
-    public bool drawBoidGizmos = true;
-    public bool drawLandingAreaGizmos = true;
-    public bool drawLanderStateGizmos = true;
-    public bool drawKdTreeGizmos = true;
-    public bool drawTurretGizmos = true;
-    public bool drawTurretHeadGizmos = true;
-    public bool drawTurretCannonGizmos = true;
-    public bool drawCannonGizmos = true;
-    public bool drawBoidGridGizmos = true;
+    public bool drawBoidGizmos { get; set; } = false;
+    public bool drawLandingAreaGizmos { get; set; } = false;
+    public bool drawLanderStateGizmos { get; set; } = false;
+    public bool drawKdTreeGizmos { get; set; } = false;
+    public bool drawTurretGizmos { get; set; } = false;
+    public bool drawTurretHeadGizmos { get; set; } = false;
+    public bool drawTurretCannonGizmos { get; set; } = false;
+    public bool drawCannonGizmos { get; set; } = false;
+    public bool drawBoidGridGizmos { get; set; } = false;
 
 
     private SystemHandle _gizmoSystemHandle;

@@ -21,109 +21,62 @@ public struct BoidSettings : IComponentData
     public float MaxSteerForce;
 
     public float BoundaryWeight;
-}
-
-class BoidSettingsBaker : MonoBehaviour
-{
-    public float ViewRadius = 3f;
-    public float SeparationRadius = 2.5f;
-    public float AvoidanceRadius = 5f;
-    public float LandingRadius = 30f;
-
-    [Header("Behavior Weights")]
-    public float SeparationWeight = 6.0f;
-    public float AlignmentWeight = 1.0f;
-    public float CohesionWeight = 3.0f;
-    public float AvoidanceWeight = 6.0F;
-    public float LandingWeight = 4.0F;
-    public float FlowmapWeight = 1.0f;
-
-    [Header("Limits")]
-    public float MaxSpeed = 15f;
-    public float MinSpeed = 10f;
-    public float MaxSteerForce = 0.5f;
-
-    [Header("Boundary")]
-    public float BoundaryWeight = 50f;
     
-    // --- Runtime ECS sync members ---
-    EntityManager em;
-    Entity settingsEntity;
-
-    void Start()
-    {
-        // if there's no DOTS world (edit mode), bail out quietly
-        if (World.DefaultGameObjectInjectionWorld == null)
-            return;
-
-        em = World.DefaultGameObjectInjectionWorld.EntityManager;
-
-        // Try to find an existing BoidSettings singleton entity (created during conversion/bake)
-        var query = em.CreateEntityQuery(typeof(BoidSettings));
-        if (!query.IsEmpty)
-        {
-            settingsEntity = query.GetSingletonEntity();
-        }
-    }
-
-    void Update()
-    {
-        // don't try to sync if we don't have an EntityManager (e.g. in edit mode)
-        if (em == null || settingsEntity == Entity.Null) return;
-
-        // Every frame write inspector values into the ECS singleton
-        em.SetComponentData(settingsEntity, ToBoidSettings());
-    }
-
-    BoidSettings ToBoidSettings()
-    {
-        return new BoidSettings
-        {
-            ViewRadius = ViewRadius,
-            SeparationRadius = SeparationRadius,
-            AvoidanceRadius = AvoidanceRadius,
-            LandingRadius = LandingRadius,
-
-            SeparationWeight = SeparationWeight,
-            AlignmentWeight = AlignmentWeight,
-            CohesionWeight = CohesionWeight,
-            AvoidanceWeight = AvoidanceWeight,
-            LandingWeight = LandingWeight,
-            FlowmapWeight = FlowmapWeight,
-
-            MaxSpeed = MaxSpeed,
-            MinSpeed = MinSpeed,
-            MaxSteerForce = MaxSteerForce,
-
-            BoundaryWeight = BoundaryWeight
-        };
-    }
+    public float LOD1Distance;
+    public float LOD2Distance;
+    public float LOD3Distance;
 }
 
-class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
+public struct BoidSpawnerReference : IComponentData
+{
+    public Entity SpawnerPrefab;
+}
+
+public class BoidSettingsBaker : MonoBehaviour
+{
+    public BoidConfigAsset DefaultConfig;
+    public GameObject SpawnerPrefab;
+}
+
+public class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
 {
     public override void Bake(BoidSettingsBaker authoring)
     {
+        if (authoring.DefaultConfig == null) return;
+
         var entity = GetEntity(TransformUsageFlags.None);
+        
+        // Bake initial values directly from the Asset
         AddComponent(entity, new BoidSettings
         {
-            ViewRadius = authoring.ViewRadius,
-            SeparationRadius = authoring.SeparationRadius,
-            AvoidanceRadius = authoring.AvoidanceRadius,
-            LandingRadius = authoring.LandingRadius,
+            ViewRadius = authoring.DefaultConfig.ViewRadius,
+            SeparationRadius = authoring.DefaultConfig.SeparationRadius,
+            AvoidanceRadius = authoring.DefaultConfig.AvoidanceRadius,
+            LandingRadius = authoring.DefaultConfig.LandingRadius,
 
-            SeparationWeight = authoring.SeparationWeight,
-            AlignmentWeight = authoring.AlignmentWeight,
-            CohesionWeight = authoring.CohesionWeight,
-            AvoidanceWeight = authoring.AvoidanceWeight,
-            LandingWeight = authoring.LandingWeight,
-            FlowmapWeight = authoring.FlowmapWeight,
+            SeparationWeight = authoring.DefaultConfig.SeparationWeight,
+            AlignmentWeight = authoring.DefaultConfig.AlignmentWeight,
+            CohesionWeight = authoring.DefaultConfig.CohesionWeight,
+            AvoidanceWeight = authoring.DefaultConfig.AvoidanceWeight,
+            LandingWeight = authoring.DefaultConfig.LandingWeight,
+            FlowmapWeight = authoring.DefaultConfig.FlowmapWeight,
+            BoundaryWeight = authoring.DefaultConfig.BoundaryWeight,
 
-            MaxSpeed = authoring.MaxSpeed,
-            MinSpeed = authoring.MinSpeed,
-            MaxSteerForce = authoring.MaxSteerForce,
-
-            BoundaryWeight = authoring.BoundaryWeight,
+            MaxSpeed = authoring.DefaultConfig.MaxSpeed,
+            MinSpeed = authoring.DefaultConfig.MinSpeed,
+            MaxSteerForce = authoring.DefaultConfig.MaxSteerForce,
+            
+            LOD1Distance = authoring.DefaultConfig.LOD1Distance,
+            LOD2Distance = authoring.DefaultConfig.LOD2Distance,
+            LOD3Distance = authoring.DefaultConfig.LOD3Distance
         });
+
+        if (authoring.SpawnerPrefab != null)
+        {
+            AddComponent(entity, new BoidSpawnerReference
+            {
+                SpawnerPrefab = GetEntity(authoring.SpawnerPrefab, TransformUsageFlags.Dynamic)
+            });
+        }
     }
 }

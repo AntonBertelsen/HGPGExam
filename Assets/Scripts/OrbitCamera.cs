@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class OrbitCameraRig : MonoBehaviour
 {
@@ -24,6 +25,10 @@ public class OrbitCameraRig : MonoBehaviour
     private Vector3 targetPosition;
     private float yaw;
     private float pitch;
+    
+    // For dealing with UI sliders which should override the click drag rotate behaviour
+    private bool _canRotate = false;
+    private bool _canPan = false;
 
     void Start()
     {
@@ -68,7 +73,26 @@ public class OrbitCameraRig : MonoBehaviour
 
     void HandleRotation()
     {
-        if (Input.GetMouseButton(0)) // right mouse drag
+        
+        if (Input.GetMouseButtonDown(0))
+        {
+            // If we are hovering UI, we are not allowed to rotate
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            {
+                _canRotate = false;
+            }
+            else
+            {
+                _canRotate = true;
+            }
+        }
+        
+        if (Input.GetMouseButtonUp(0))
+        {
+            _canRotate = false;
+        }
+        
+        if (_canRotate &&Input.GetMouseButton(0)) // right mouse drag
         {
             yaw += Input.GetAxis("Mouse X") * rotationSpeed * Time.deltaTime;
             pitch -= Input.GetAxis("Mouse Y") * rotationSpeed * Time.deltaTime;
@@ -78,6 +102,11 @@ public class OrbitCameraRig : MonoBehaviour
 
     void HandleZoom()
     {
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+        
         float scroll = Input.GetAxis("Mouse ScrollWheel");
         if (Mathf.Abs(scroll) > 0.001f)
         {
@@ -87,8 +116,25 @@ public class OrbitCameraRig : MonoBehaviour
 
     void HandlePanning()
     {
+        if (Input.GetMouseButtonDown(1))
+        {
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            {
+                _canPan = false;
+            }
+            else
+            {
+                _canPan = true;
+            }
+        }
+
+        if (Input.GetMouseButtonUp(1))
+        {
+            _canPan = false;
+        }
+        
         // Click mouse pan
-        if (Input.GetMouseButton(1))
+        if (_canPan && Input.GetMouseButton(1))
         {
             Vector3 right = transform.right;
             Vector3 up = transform.up;

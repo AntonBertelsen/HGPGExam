@@ -59,7 +59,8 @@ public partial struct LODSystem_WithJob : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<CameraPositionSingleton>();
-        state.RequireForUpdate<SimpleLODConfig>(); // Depend on our new singleton.
+        state.RequireForUpdate<SimpleLODConfig>();
+        state.RequireForUpdate<BoidSettings>();
     }
 
     public void OnUpdate(ref SystemState state)
@@ -69,6 +70,9 @@ public partial struct LODSystem_WithJob : ISystem
             Initialize(ref state, ref this);
             m_IsInitialized = true;
         }
+        
+        var boidSettings = SystemAPI.GetSingleton<BoidSettings>();
+        
 
         var cameraPosition = SystemAPI.GetSingleton<CameraPositionSingleton>().CameraTransform.Position;
 
@@ -79,9 +83,9 @@ public partial struct LODSystem_WithJob : ISystem
             LOD1_ID = m_LOD1_ID,
             LOD2_ID = m_LOD2_ID,
             LOD3_ID = m_LOD3_ID,
-            LOD1DistanceSq = m_LOD1_DistSq,
-            LOD2DistanceSq = m_LOD2_DistSq,
-            LOD3DistanceSq = m_LOD3_DistSq
+            LOD1DistanceSq = boidSettings.LOD1Distance * boidSettings.LOD1Distance,
+            LOD2DistanceSq = boidSettings.LOD2Distance * boidSettings.LOD2Distance,
+            LOD3DistanceSq = boidSettings.LOD3Distance * boidSettings.LOD3Distance
         };
         
         // The job will run on all entities with the ApplyLOD tag.
@@ -104,11 +108,6 @@ public partial struct LODSystem_WithJob : ISystem
         system.m_LOD1_ID = mapping[lodConfig.MeshLOD1];
         system.m_LOD2_ID = mapping[lodConfig.MeshLOD2];
         system.m_LOD3_ID = mapping[lodConfig.MeshLOD3];
-        
-        // Pre-calculate squared distances to avoid doing it every frame in the job.
-        system.m_LOD1_DistSq = lodConfig.LOD1Distance * lodConfig.LOD1Distance;
-        system.m_LOD2_DistSq = lodConfig.LOD2Distance * lodConfig.LOD2Distance;
-        system.m_LOD3_DistSq = lodConfig.LOD3Distance * lodConfig.LOD3Distance;
     }
 
     private void RegisterMesh(EntitiesGraphicsSystem renderer, Dictionary<Mesh, BatchMeshID> mapping, Mesh mesh)

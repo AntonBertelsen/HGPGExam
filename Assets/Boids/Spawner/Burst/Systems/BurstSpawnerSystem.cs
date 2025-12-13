@@ -14,50 +14,43 @@ public partial struct BurstSpawnerSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         random = new Random((uint)System.DateTime.Now.Ticks + 1);
+        state.RequireForUpdate<BurstSpawnerComponent>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        // The query now iterates over all entities that have a spawner component and a transform.
-        // We use RefRO (Read-Only) because we are not changing the spawner's data.
-        foreach (var (spawner, spawnerTransform) in 
-            SystemAPI.Query<RefRO<BurstSpawnerComponent>, RefRO<LocalTransform>>())
+        var ecb = new EntityCommandBuffer(Allocator.Temp);
+        
+        foreach (var (spawner, spawnerTransform, entity) in 
+                 SystemAPI.Query<RefRO<BurstSpawnerComponent>, RefRO<LocalTransform>>()
+                     .WithEntityAccess())
         {
-            // This is the key to high-performance burst spawning.
-            // It tells the EntityManager to create all entities in one single operation.
+            // We spawn new boids
             var newBoids = state.EntityManager.Instantiate(spawner.ValueRO.prefab, spawner.ValueRO.count, Allocator.Temp);
 
-            // Now we loop through the newly created entities to set their unique properties.
-            foreach (var entity in newBoids)
+            // Iterate over every new boid and update its settings
+            foreach (var boid in newBoids)
             {
-                // Set the unique position, using the spawner's position as the center
-                var newTransform = SystemAPI.GetComponentRW<LocalTransform>(entity);
+                var newTransform = SystemAPI.GetComponentRW<LocalTransform>(boid);
                 newTransform.ValueRW.Position = spawnerTransform.ValueRO.Position;
 
-                // Set unique velocity
-                var newVelocity = SystemAPI.GetComponentRW<Velocity>(entity);
+                var newVelocity = SystemAPI.GetComponentRW<Velocity>(boid);
                 newVelocity.ValueRW.Value = random.NextFloat3Direction() * 5f;
-                
-                // This prevents the "Wave Effect" where all birds spawn with full energy, 
-                // fly for exactly 3 minutes, and then all try to land simultaneously.
-                // We set them between 20% and 95% energy so they stagger their first landing naturally.
-                var lander = SystemAPI.GetComponentRW<Lander>(entity);
+
+                // We set the energy level in the lander component to some randomized value. This is to prevent an issue
+                // we had where every bird would run out of energy at the same time and try to land all at once
+                var lander = SystemAPI.GetComponentRW<Lander>(boid);
                 lander.ValueRW.Energy = random.NextFloat(20f, 95f);
-                // Ensure state starts as Flying
                 lander.ValueRW.State = LanderState.Flying;
             }
-
-            // The NativeArray created by Instantiate must be disposed.
             newBoids.Dispose();
-            // This system should only run once.
-            state.Enabled = false;
+            
+            // Destroy the spawner entity so it only triggers once
+            ecb.DestroyEntity(entity);
         }
-    }
 
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    {
-        
+        ecb.Playback(state.EntityManager);
+        ecb.Dispose();
     }
 }
