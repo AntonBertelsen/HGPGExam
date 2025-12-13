@@ -1628,11 +1628,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 228863954}
   m_CullTransparentMesh: 1
---- !u!1 &234907422 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 772597406905855093, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-  m_PrefabInstance: {fileID: 633563850}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &243525331
 GameObject:
   m_ObjectHideFlags: 0
@@ -5716,99 +5711,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 632586856}
   m_CullTransparentMesh: 1
---- !u!1001 &633563850
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 772597406905855093, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_Name
-      value: PlannerReflectionVolume
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: showGizmos
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: renderScale
-      value: 0.3
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: volumeSize.x
-      value: 10000
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: volumeSize.y
-      value: 10000
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: volumeSize.z
-      value: 10000
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: reflectSkybox
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: reflectionTarget
-      value: 
-      objectReference: {fileID: 234907422}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: hideReflectionCamera
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2062832743886062038, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: reflectionLayer.m_Bits
-      value: 39
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 52.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -6.78
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 45.7
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8010975151478646126, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 5b003cc6e57bf8441acf22254742cf41, type: 3}
 --- !u!1 &636740582
 GameObject:
   m_ObjectHideFlags: 0
@@ -14489,16 +14391,16 @@ MonoBehaviour:
     consectetur ipsum consectetur a. Suspendisse gravida metus molestie, commodo
     orci nec, aliquam diam.
 
-    
 
-    Cras felis arcu, pellentesque sit amet velit
-    sit amet, semper scelerisque ligula. Nullam et nulla id mi mattis convallis.
-    Aenean a placerat arcu, at mollis arcu. Curabitur sollicitudin aliquet nulla,
-    consequat luctus purus commodo a. Ut molestie, mauris et mattis sagittis, tortor
-    ligula rutrum tortor, at ullamcorper tortor diam nec turpis. Maecenas in fringilla
-    mi, quis volutpat dolor. In hac habitasse platea dictumst. Morbi auctor tellus
-    non tempor dignissim. Nam sed nisi in ex suscipit elementum facilisis sit amet
-    lectus. Etiam ullamcorper luctus bibendum. In hac habitasse '
+
+    Cras felis arcu, pellentesque sit amet velit sit
+    amet, semper scelerisque ligula. Nullam et nulla id mi mattis convallis. Aenean
+    a placerat arcu, at mollis arcu. Curabitur sollicitudin aliquet nulla, consequat
+    luctus purus commodo a. Ut molestie, mauris et mattis sagittis, tortor ligula
+    rutrum tortor, at ullamcorper tortor diam nec turpis. Maecenas in fringilla mi,
+    quis volutpat dolor. In hac habitasse platea dictumst. Morbi auctor tellus non
+    tempor dignissim. Nam sed nisi in ex suscipit elementum facilisis sit amet lectus.
+    Etiam ullamcorper luctus bibendum. In hac habitasse '
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -21439,6 +21341,5 @@ SceneRoots:
   - {fileID: 895862240}
   - {fileID: 966865710}
   - {fileID: 583862165}
-  - {fileID: 633563850}
   - {fileID: 1981384861}
   - {fileID: 1722411579}

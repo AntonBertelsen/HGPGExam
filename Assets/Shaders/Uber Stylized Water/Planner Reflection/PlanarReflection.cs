@@ -212,10 +212,17 @@ public class PlanarReflectionVolume : MonoBehaviour
         if (dest == null) return;
 
         dest.CopyFrom(src);
+        dest.cameraType = CameraType.Reflection;
         dest.useOcclusionCulling = false;
-
+        dest.allowMSAA = false;
+        
         if (dest.gameObject.TryGetComponent(out UnityEngine.Rendering.Universal.UniversalAdditionalCameraData camData))
         {
+            camData.requiresColorOption = CameraOverrideOption.On;
+            camData.requiresDepthOption = CameraOverrideOption.On;
+            camData.renderPostProcessing = false;
+            camData.requiresDepthTexture = true;
+            
             camData.renderShadows = false;
             if (reflectSkybox) dest.clearFlags = CameraClearFlags.Skybox;
             else
@@ -232,8 +239,8 @@ public class PlanarReflectionVolume : MonoBehaviour
         go.name = "Reflection Camera [" + go.GetInstanceID() + "]";
         var camData = go.AddComponent(typeof(UnityEngine.Rendering.Universal.UniversalAdditionalCameraData)) as UnityEngine.Rendering.Universal.UniversalAdditionalCameraData;
 
-        camData.requiresColorOption = CameraOverrideOption.Off;
-        camData.requiresDepthOption = CameraOverrideOption.Off;
+        camData.requiresColorOption = CameraOverrideOption.On;
+        camData.requiresDepthOption = CameraOverrideOption.On;
         camData.SetRenderer(0);
 
         var t = transform;
@@ -241,6 +248,7 @@ public class PlanarReflectionVolume : MonoBehaviour
         reflectionCamera.transform.SetPositionAndRotation(t.position, t.rotation);
         reflectionCamera.depth = -10;
         reflectionCamera.enabled = false;
+        reflectionCamera.allowMSAA = false;
 
         return reflectionCamera;
     }
@@ -288,6 +296,8 @@ public class PlanarReflectionVolume : MonoBehaviour
 
     private void DoPlanarReflections(ScriptableRenderContext context, Camera camera)
     {
+        if (camera == _reflectionCamera) return;
+        
         if (camera.cameraType == CameraType.Reflection || camera.cameraType == CameraType.Preview) return;
         if (!reflectionTarget) return;
 
@@ -318,7 +328,11 @@ public class PlanarReflectionVolume : MonoBehaviour
 
         if (_reflectionCamera.WorldToViewportPoint(reflectionTarget.transform.position).z < 100000)
         {
-            UniversalRenderPipeline.RenderSingleCamera(context, _reflectionCamera);
+            //UniversalRenderPipeline.RenderSingleCamera(context, _reflectionCamera);
+            UniversalRenderPipeline.SingleCameraRequest request = new UniversalRenderPipeline.SingleCameraRequest();
+        
+            // Submit the request to the active render pipeline
+            RenderPipeline.SubmitRenderRequest(_reflectionCamera, request);
         }
 
         data.Restore();
