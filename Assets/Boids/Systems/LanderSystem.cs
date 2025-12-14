@@ -18,6 +18,7 @@ public partial struct LanderSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<BeginSimulationEntityCommandBufferSystem.Singleton>();
+        state.RequireForUpdate<BoidSettings>();
         state.RequireForUpdate<KdTree>();
 
         _landerQuery = new EntityQueryBuilder(Allocator.Temp)
@@ -56,8 +57,10 @@ public partial struct LanderSystem : ISystem
             // Pass the writer for startles happening right now
             OutgoingStartles = nextFrameStartles.AsParallelWriter()
         };
-
-        state.Dependency = landerJob.ScheduleParallel(state.Dependency);
+            
+        var config = SystemAPI.GetSingleton<BoidSettings>();
+        if(config.UseParallel) state.Dependency = landerJob.ScheduleParallel(state.Dependency);
+        else state.Dependency = landerJob.Schedule(state.Dependency);
         state.Dependency.Complete();
 
         foreach (var (update, index) in updates)
