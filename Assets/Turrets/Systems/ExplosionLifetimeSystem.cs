@@ -30,7 +30,6 @@ partial struct ExplosionLifetimeSystem : ISystem
         {
 
             explosion.ValueRW.timeLived += deltaTime;
-            //transform.ValueRW.Scale = explosion.ValueRO.timeLived * 2;
 
             if (explosion.ValueRO.timeLived > 0.1 && explosion.ValueRO.timeLived < 0.2)
             {
@@ -41,7 +40,7 @@ partial struct ExplosionLifetimeSystem : ISystem
                     var direction = boidTrans.ValueRO.Position - transform.ValueRO.Position;
                     var dist = math.length(direction);
                     
-                    if (dist < transform.ValueRO.Scale*2)
+                    if (dist < transform.ValueRO.Scale*10)
                     {
                         boidTag.ValueRW.dead = true;
                     }

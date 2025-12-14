@@ -89,7 +89,16 @@ public partial struct LODSystem_WithJob : ISystem
         };
         
         // The job will run on all entities with the ApplyLOD tag.
-        state.Dependency = lodJob.ScheduleParallel(state.Dependency);
+        if (boidSettings.UseParallel)
+        {
+            var jobHandle = lodJob.ScheduleParallel(state.Dependency);
+            state.Dependency = jobHandle;
+        }
+        else
+        {
+            var jobHandle = lodJob.Schedule(state.Dependency);
+            state.Dependency = jobHandle;
+        }
     }
 
     private void Initialize(ref SystemState state, ref LODSystem_WithJob system)
