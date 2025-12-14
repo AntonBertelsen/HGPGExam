@@ -20,8 +20,7 @@ partial struct ExplosionLifetimeSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
 
-        var ecbSingleton = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>();
-        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
+        var ecb = new EntityCommandBuffer(Allocator.Temp);
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
 
 
@@ -45,9 +44,8 @@ partial struct ExplosionLifetimeSystem : ISystem
                     if (dist < transform.ValueRO.Scale*10)
                     {
                         boidTag.ValueRW.dead = true;
-                        var mass = state.EntityManager.GetComponentData<PhysicsMass>(entityBoid);
-                        mass.InverseMass = 1f;
-                        state.EntityManager.SetComponentData(entityBoid, mass);
+                        PhysicsMass mass = PhysicsMass.CreateDynamic(MassProperties.UnitSphere, 1);
+                        ecb.SetComponent(entityBoid, mass);
                     }
                     else
                     {
@@ -70,6 +68,8 @@ partial struct ExplosionLifetimeSystem : ISystem
                 ecb.DestroyEntity(entity);
             }
         }
+        
+        ecb.Playback(state.EntityManager);
     }
 
     [BurstCompile]

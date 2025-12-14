@@ -72,6 +72,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: animated_bird
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 6e2cd54648647bc47b6846fc3e0cca23, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -84,7 +88,7 @@ PrefabInstance:
       addedObject: {fileID: -6373888557397782374}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 6e2cd54648647bc47b6846fc3e0cca23, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4257112866489004658}
+      addedObject: {fileID: 4161028476782690756}
   m_SourcePrefab: {fileID: 100100000, guid: 6e2cd54648647bc47b6846fc3e0cca23, type: 3}
 --- !u!1 &8449456927542751932 stripped
 GameObject:
@@ -130,8 +134,8 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!64 &4257112866489004658
-MeshCollider:
+--- !u!65 &4161028476782690756
+BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -143,12 +147,11 @@ MeshCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 1
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 4322720766850943438, guid: 6e2cd54648647bc47b6846fc3e0cca23, type: 3}
+  serializedVersion: 3
+  m_Size: {x: 0.09342572, y: 0.006711684, z: 0.092453465}
+  m_Center: {x: 0.00056765974, y: 0.052045513, z: 0.012104273}
