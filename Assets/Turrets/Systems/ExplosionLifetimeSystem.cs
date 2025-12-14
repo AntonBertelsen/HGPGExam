@@ -3,6 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -19,7 +20,8 @@ partial struct ExplosionLifetimeSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
 
-        var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+        var ecbSingleton = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>();
+        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
 
 
@@ -34,8 +36,8 @@ partial struct ExplosionLifetimeSystem : ISystem
             if (explosion.ValueRO.timeLived > 0.1 && explosion.ValueRO.timeLived < 0.2)
             {
                 explosion.ValueRW.hasExploded = true;
-                foreach (var (boidTrans, boidVel, boidTag) in SystemAPI
-                             .Query<RefRW<LocalTransform>, RefRW<Velocity>, RefRW<BoidTag>>().WithAll<BoidTag>())
+                foreach (var (boidTrans, boidVel, boidTag, entityBoid) in SystemAPI
+                             .Query<RefRW<LocalTransform>, RefRW<Velocity>, RefRW<BoidTag>>().WithAll<BoidTag>().WithEntityAccess())
                 {
                     var direction = boidTrans.ValueRO.Position - transform.ValueRO.Position;
                     var dist = math.length(direction);
@@ -43,19 +45,23 @@ partial struct ExplosionLifetimeSystem : ISystem
                     if (dist < transform.ValueRO.Scale*10)
                     {
                         boidTag.ValueRW.dead = true;
+                        var mass = state.EntityManager.GetComponentData<PhysicsMass>(entityBoid);
+                        mass.InverseMass = 1f;
+                        state.EntityManager.SetComponentData(entityBoid, mass);
                     }
+                    else
+                    {
+                        var normalizedVec = direction/dist;
 
-                    var normalizedVec = direction/dist;
-
-                    float baseExplosionDistance = explosion.ValueRO.explosionDistance;
-                    float baseExplosionForce = explosion.ValueRO.explosionForce;
+                        float baseExplosionDistance = explosion.ValueRO.explosionDistance;
+                        float baseExplosionForce = explosion.ValueRO.explosionForce;
                     
-                    if (dist > baseExplosionDistance) continue;
-                    var falloff = 1 - (dist / baseExplosionDistance);
-                    float3 explosionForce = normalizedVec * falloff * baseExplosionForce * deltaTime;
+                        if (dist > baseExplosionDistance) continue;
+                        var falloff = 1 - (dist / baseExplosionDistance);
+                        float3 explosionForce = normalizedVec * falloff * baseExplosionForce * deltaTime;
                     
-                    boidVel.ValueRW.Value += explosionForce;
-                    
+                        boidVel.ValueRW.Value += explosionForce;
+                    }
                 } 
             }
 
@@ -64,11 +70,6 @@ partial struct ExplosionLifetimeSystem : ISystem
                 ecb.DestroyEntity(entity);
             }
         }
-        
-        
-        ecb.Playback(state.EntityManager);
-        ecb.Dispose();
-        
     }
 
     [BurstCompile]

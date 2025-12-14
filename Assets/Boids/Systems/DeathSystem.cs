@@ -32,7 +32,8 @@ public partial struct DeathSystem : ISystem
             foreach (var (boidTag, transform,entity) in SystemAPI
                          .Query<RefRW<BoidTag>, RefRO<LocalToWorld>>().WithAll<BoidTag>().WithEntityAccess())
             {
-                if (boidTag.ValueRW.dead && transform.ValueRO.Position.y < -10) ecb.DestroyEntity(entity);
+                boidTag.ValueRW.timeBeingDead += SystemAPI.Time.DeltaTime;
+                if (boidTag.ValueRW.dead && boidTag.ValueRW.timeBeingDead > 5) ecb.DestroyEntity(entity);
             }
 
             ecb.Playback(state.EntityManager);

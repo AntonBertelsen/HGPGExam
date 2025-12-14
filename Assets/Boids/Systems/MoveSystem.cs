@@ -1,15 +1,29 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Physics;
+using Unity.Physics.Systems;
 using Unity.Transforms;
 using UnityEngine;
-
 [BurstCompile]
+[UpdateBefore(typeof(PhysicsSystemGroup))]
 public partial struct MoveSystem : ISystem
 {
+
+    public void OnCreate(ref SystemState state)
+    {
+        var world = World.DefaultGameObjectInjectionWorld;
+        var systemGroups = world.GetExistingSystemManaged<SimulationSystemGroup>();
+
+        systemGroups.AddSystemToUpdateList(
+            world.CreateSystemManaged<PhysicsSystemGroup>()
+        );
+    }
+
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        state.RequireForUpdate<PhysicsStep>();   
         var moveJob = new MoveJob
         {
             DeltaTime = SystemAPI.Time.DeltaTime
@@ -29,11 +43,9 @@ public partial struct MoveJob : IJobEntity
     // 'in' means we only read from Velocity (a small optimization)
     public void Execute(ref LocalTransform transform, ref BoidTag boidTag, in Velocity velocity)
     {
-
         if (boidTag.dead) //TODO: I think this should be done with tags / components instead even though it causes a structral change. We can add rigidbodies to the birds and disable the bird behaviour.
         {
-            transform.Position += new float3(0, -6, 0) * DeltaTime;
-            transform.Rotation = Quaternion.LookRotation(velocity.Value);
+            
         }
         else
         {

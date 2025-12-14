@@ -1,8 +1,11 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
+using MeshCollider = UnityEngine.MeshCollider;
 using Random = Unity.Mathematics.Random;
 
 [BurstCompile]
@@ -37,7 +40,9 @@ public partial struct BurstSpawnerSystem : ISystem
 
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(boid);
                 newVelocity.ValueRW.Value = random.NextFloat3Direction() * 5f;
-
+                var mass = state.EntityManager.GetComponentData<PhysicsMass>(boid);
+                mass.InverseMass = 0;
+                state.EntityManager.SetComponentData(boid, mass);
                 // We set the energy level in the lander component to some randomized value. This is to prevent an issue
                 // we had where every bird would run out of energy at the same time and try to land all at once
                 var lander = SystemAPI.GetComponentRW<Lander>(boid);
