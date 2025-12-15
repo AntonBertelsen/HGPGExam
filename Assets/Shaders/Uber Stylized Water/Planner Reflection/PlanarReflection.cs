@@ -220,8 +220,10 @@ public class PlanarReflectionVolume : MonoBehaviour
         {
             camData.requiresColorOption = CameraOverrideOption.On;
             camData.requiresDepthOption = CameraOverrideOption.On;
-            camData.renderPostProcessing = false;
+            camData.requiresColorTexture = true;
             camData.requiresDepthTexture = true;
+            
+            camData.renderPostProcessing = false;
             
             camData.renderShadows = false;
             if (reflectSkybox) dest.clearFlags = CameraClearFlags.Skybox;
@@ -328,11 +330,11 @@ public class PlanarReflectionVolume : MonoBehaviour
 
         if (_reflectionCamera.WorldToViewportPoint(reflectionTarget.transform.position).z < 100000)
         {
-            //UniversalRenderPipeline.RenderSingleCamera(context, _reflectionCamera);
-            UniversalRenderPipeline.SingleCameraRequest request = new UniversalRenderPipeline.SingleCameraRequest();
+            UniversalRenderPipeline.RenderSingleCamera(context, _reflectionCamera);
+            //UniversalRenderPipeline.SingleCameraRequest request = new UniversalRenderPipeline.SingleCameraRequest();
         
             // Submit the request to the active render pipeline
-            RenderPipeline.SubmitRenderRequest(_reflectionCamera, request);
+            //RenderPipeline.SubmitRenderRequest(_reflectionCamera, request);
         }
 
         data.Restore();
