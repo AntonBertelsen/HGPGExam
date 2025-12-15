@@ -7,6 +7,7 @@ class ExplosionBaker : MonoBehaviour
     public float lifeExpetancy;
     public float explosionForce = 2.0f;
     public float explosionDistance = 20.0f;
+    public GameObject prefab;
 }
 
 class ExplosionAuthoringBaker : Baker<ExplosionBaker>
@@ -21,7 +22,8 @@ class ExplosionAuthoringBaker : Baker<ExplosionBaker>
             timeLived = authoring.timeLived,
             hasExploded = false,
             explosionForce = authoring.explosionForce,
-            explosionDistance = authoring.explosionDistance
+            explosionDistance = authoring.explosionDistance,
+            physicsBird = GetEntity(authoring.prefab, TransformUsageFlags.Dynamic),
         });
     }
 }
