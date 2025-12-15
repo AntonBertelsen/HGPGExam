@@ -28,12 +28,17 @@ public partial struct DeathSystem : ISystem
             {
                 frameCount = 0;
             }
+
             var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
-            foreach (var (boidTag, transform,entity) in SystemAPI
+            foreach (var (boidTag, transform, entity) in SystemAPI
                          .Query<RefRW<BoidTag>, RefRO<LocalToWorld>>().WithAll<BoidTag>().WithEntityAccess())
             {
-                boidTag.ValueRW.timeBeingDead += SystemAPI.Time.DeltaTime;
-                if (boidTag.ValueRW.dead && boidTag.ValueRW.timeBeingDead > 5) ecb.DestroyEntity(entity);
+
+                if (boidTag.ValueRW.dead) boidTag.ValueRW.timeBeingDead += SystemAPI.Time.DeltaTime;
+                if (boidTag.ValueRW.dead && boidTag.ValueRW.timeBeingDead > 0.3f)
+                {
+                    ecb.DestroyEntity(entity);
+                }
             }
 
             ecb.Playback(state.EntityManager);
