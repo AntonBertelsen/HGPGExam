@@ -43,11 +43,11 @@ partial struct ExplosionLifetimeSystem : ISystem
                     
                     if (dist < transform.ValueRO.Scale*10)
                     {
-                        boidTag.ValueRW.dead = true;
                         var bird = ecb.Instantiate(explosion.ValueRO.physicsBird);
                         ecb.SetComponent(bird, boidTrans.ValueRW);
                         ecb.SetComponent(bird, boidVel.ValueRW);
                         ecb.SetComponent(bird, boidTag.ValueRW);
+                        ecb.SetComponent(bird, new PendingDespawn { TimeRemaining = .3f });
                         ecb.DestroyEntity(entityBoid);
                     }
                     else

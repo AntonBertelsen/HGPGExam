@@ -3,8 +3,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
-using UnityEngine.Rendering;
 using Random = Unity.Mathematics.Random;
 
 [BurstCompile]
@@ -17,12 +15,12 @@ public partial struct BoidSystem : ISystem
 
     public void OnCreate(ref SystemState state)
     {
-        // We require the config to exist.
+        state.RequireForUpdate<BoundaryComponent>();
+        state.RequireForUpdate<SpatialGridData>();
         state.RequireForUpdate<BoidSettings>();
 
         _directions = BoidHelper.Directions;
 
-        // We create a query to find all boids.
         boidQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<BoidTag, LocalTransform, Velocity>()
             .Build(ref state);
@@ -34,11 +32,9 @@ public partial struct BoidSystem : ISystem
         var config = SystemAPI.GetSingleton<BoidSettings>();
         var gridData = SystemAPI.GetSingleton<SpatialGridData>();
         var boundary = SystemAPI.GetSingleton<BoundaryComponent>();
-        
-        FlowFieldData flowField = default;
-        bool hasFlowField = SystemAPI.TryGetSingleton(out flowField);
 
-        // This is the brute-force part. We copy all boid data into arrays.
+        var hasFlowField = SystemAPI.TryGetSingleton(out FlowFieldData flowField);
+
         var boids = boidQuery.ToEntityArray(Allocator.TempJob);
         var transforms = boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var velocities = boidQuery.ToComponentDataArray<Velocity>(Allocator.TempJob);
@@ -62,24 +58,15 @@ public partial struct BoidSystem : ISystem
             Bounds = boundary
         };
 
-        // Schedule the job and chain the disposal of our temporary arrays.
-        if (config.UseParallel)
+        var jobHandle = config.UseParallel switch
         {
-            var jobHandle = boidJob.ScheduleParallel(state.Dependency);
-            jobHandle = boids.Dispose(jobHandle);
-            jobHandle = transforms.Dispose(jobHandle);
-            jobHandle = velocities.Dispose(jobHandle);
-            state.Dependency = jobHandle;
-        }
-        else
-        {
-            var jobHandle = boidJob.Schedule(state.Dependency);
-            jobHandle = boids.Dispose(jobHandle);
-            jobHandle = transforms.Dispose(jobHandle);
-            jobHandle = velocities.Dispose(jobHandle);
-            state.Dependency = jobHandle;
-        }
-
+            true => boidJob.ScheduleParallel(state.Dependency),
+            false => boidJob.Schedule(state.Dependency)
+        };
+        jobHandle = boids.Dispose(jobHandle);
+        jobHandle = transforms.Dispose(jobHandle);
+        jobHandle = velocities.Dispose(jobHandle);
+        state.Dependency = jobHandle;
     }
 }
 
@@ -91,7 +78,6 @@ public partial struct BoidJob : IJobEntity
 
     [ReadOnly] public NativeArray<float3> Directions;
 
-    // These arrays contain the data for ALL boids in the simulation.
     [ReadOnly] public NativeArray<Entity> Entities;
     [ReadOnly] public NativeArray<LocalTransform> Transforms;
     [ReadOnly] public NativeArray<Velocity> Velocities;
@@ -103,31 +89,22 @@ public partial struct BoidJob : IJobEntity
 
     [ReadOnly] public BoundaryComponent Bounds;
 
-    // This 'Execute' method runs for EACH boid.
-    private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag,
+    private void Execute(Entity currentEntity, ref Velocity currentVelocity, in BoidTag boidTag,
         in LocalTransform currentTransform, in ObstacleAvoidance obstacleAvoidance, in Lander lander)
     {
-        if (boidTag.dead) return;
-        
-        // Check if we have been blown away by an explosion (velocity > MaxSpeed)
-        float currentSpeed = math.length(currentVelocity.Value);
+        var currentSpeed = math.length(currentVelocity.Value);
         
         // If we are moving faster than the boid physics allows, we are "tumbling".
         // In this state, we ignore boid rules and simply decelerate due to drag.
         if (currentSpeed > Config.MaxSpeed * 1.2f)
         {
-            // Calculate drag. A value of 2.0f means they recover control quickly. 
-            // 0.5f means they fly helpless for longer.
-            float recoveryDrag = 2.0f; 
+            var recoveryDrag = 2.0f; 
             
             // Smoothly lerp the velocity down towards the MaxSpeed limit
             currentVelocity.Value = math.lerp(currentVelocity.Value, 
                 math.normalizesafe(currentVelocity.Value) * Config.MaxSpeed, 
                 DeltaTime * recoveryDrag);
             
-            // Early return! 
-            // We skip cohesion/alignment because you can't align with friends 
-            // while you are tumbling through the air at 100mph.
             return; 
         }
 

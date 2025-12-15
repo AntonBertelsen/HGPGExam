@@ -1,20 +1,23 @@
 using Unity.Entities;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct BulletCleanupSystem : ISystem
+public partial struct DespawnSystem : ISystem
 {
+    public void OnCreate(ref SystemState state)
+    {
+        state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+    }
+
     public void OnUpdate(ref SystemState state)
     {
-        float dt = SystemAPI.Time.DeltaTime;
+        var dt = SystemAPI.Time.DeltaTime;
         var ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
             .CreateCommandBuffer(state.WorldUnmanaged);
 
-        // Iterate over entities that are pending despawn
         foreach (var (timer, entity) in SystemAPI.Query<RefRW<PendingDespawn>>().WithEntityAccess())
         {
             timer.ValueRW.TimeRemaining -= dt;
 
-            // If time is up, actually delete the entity
             if (timer.ValueRW.TimeRemaining <= 0)
             {
                 ecb.DestroyEntity(entity);
