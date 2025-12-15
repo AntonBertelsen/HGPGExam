@@ -28,6 +28,8 @@ public partial struct BurstSpawnerSystem : ISystem
         {
             // We spawn new boids
             var newBoids = state.EntityManager.Instantiate(spawner.ValueRO.prefab, spawner.ValueRO.count, Allocator.Temp);
+            
+            float speed = spawner.ValueRO.InitialSpeed;
 
             // Iterate over every new boid and update its settings
             foreach (var boid in newBoids)
@@ -36,7 +38,7 @@ public partial struct BurstSpawnerSystem : ISystem
                 newTransform.ValueRW.Position = spawnerTransform.ValueRO.Position;
 
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(boid);
-                newVelocity.ValueRW.Value = random.NextFloat3Direction() * 5f;
+                newVelocity.ValueRW.Value = random.NextFloat3Direction() * speed * random.NextFloat(0.9f, 1.1f);
 
                 // We set the energy level in the lander component to some randomized value. This is to prevent an issue
                 // we had where every bird would run out of energy at the same time and try to land all at once
