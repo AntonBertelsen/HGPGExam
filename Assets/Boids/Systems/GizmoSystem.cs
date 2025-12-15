@@ -45,6 +45,9 @@ public partial struct GizmoSystem : ISystem
 
     public void DrawBoidGizmos()
     {
+        if (_boidSettings.AvoidanceWeight < 0.001f)
+            return;
+        
         var entities = _boidQuery.ToEntityArray(Allocator.TempJob);
         var transforms = _boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var velocities = _boidQuery.ToComponentDataArray<Velocity>(Allocator.TempJob);
