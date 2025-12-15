@@ -6,18 +6,12 @@ using Unity.Physics.Systems;
 using Unity.Transforms;
 using UnityEngine;
 [BurstCompile]
-[UpdateBefore(typeof(PhysicsSystemGroup))]
 public partial struct MoveSystem : ISystem
 {
 
     public void OnCreate(ref SystemState state)
     {
-        var world = World.DefaultGameObjectInjectionWorld;
-        var systemGroups = world.GetExistingSystemManaged<SimulationSystemGroup>();
 
-        systemGroups.AddSystemToUpdateList(
-            world.CreateSystemManaged<PhysicsSystemGroup>()
-        );
     }
 
     [BurstCompile]

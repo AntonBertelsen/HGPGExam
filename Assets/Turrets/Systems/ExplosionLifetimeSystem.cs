@@ -71,8 +71,8 @@ partial struct ExplosionLifetimeSystem : ISystem
                 ecb.DestroyEntity(entity);
             }
         }
-        
         ecb.Playback(state.EntityManager);
+        ecb.Dispose();
     }
 
     [BurstCompile]
