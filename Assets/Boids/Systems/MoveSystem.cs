@@ -14,7 +14,9 @@ public partial struct MoveSystem : ISystem
         {
             DeltaTime = SystemAPI.Time.DeltaTime
         };
-        state.Dependency = moveJob.ScheduleParallel(state.Dependency);
+        var config = SystemAPI.GetSingleton<BoidSettings>();
+        if(config.UseParallel) state.Dependency = moveJob.ScheduleParallel(state.Dependency);
+        else state.Dependency = moveJob.Schedule(state.Dependency);
     }
 }
 

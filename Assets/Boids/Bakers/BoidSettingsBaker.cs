@@ -19,12 +19,14 @@ public struct BoidSettings : IComponentData
     public float MaxSpeed;
     public float MinSpeed;
     public float MaxSteerForce;
-
+    
     public float BoundaryWeight;
     
     public float LOD1Distance;
     public float LOD2Distance;
     public float LOD3Distance;
+
+    public bool UseParallel;
 }
 
 public struct BoidSpawnerReference : IComponentData
@@ -78,7 +80,9 @@ public class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
             
             LOD1Distance = authoring.DefaultConfig.LOD1Distance,
             LOD2Distance = authoring.DefaultConfig.LOD2Distance,
-            LOD3Distance = authoring.DefaultConfig.LOD3Distance
+            LOD3Distance = authoring.DefaultConfig.LOD3Distance,
+            
+            UseParallel = authoring.DefaultConfig.UseParallel
         });
         
         AddComponent(entity, new BoidSpawnerReference

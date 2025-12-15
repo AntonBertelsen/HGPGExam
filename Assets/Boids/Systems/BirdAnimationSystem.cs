@@ -29,9 +29,11 @@ public partial struct BirdAnimationSystem : ISystem
             KdTree = SystemAPI.GetSingleton<KdTree>(),
             DeltaTime = deltaTime,
         };
-
-        state.Dependency = animationJob.ScheduleParallel(state.Dependency);
-        state.Dependency = perchJob.ScheduleParallel(state.Dependency);
+        var config = SystemAPI.GetSingleton<BoidSettings>();
+        if(config.UseParallel) state.Dependency = animationJob.ScheduleParallel(state.Dependency);
+        else state.Dependency = animationJob.Schedule(state.Dependency);
+        if(config.UseParallel) state.Dependency = perchJob.ScheduleParallel(state.Dependency);
+        else state.Dependency = perchJob.Schedule(state.Dependency);
     }
 }
 

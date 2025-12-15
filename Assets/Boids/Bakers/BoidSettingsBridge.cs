@@ -26,6 +26,8 @@ public class BoidSettingsBridge : MonoBehaviour
     [HideInInspector] public float LOD2Distance;
     [HideInInspector] public float LOD3Distance;
 
+    [HideInInspector] public bool UseParallel;
+
     private EntityManager _em;
     private Entity _settingsEntity;
 
@@ -83,6 +85,8 @@ public class BoidSettingsBridge : MonoBehaviour
         LOD1Distance = DefaultConfig.LOD1Distance;
         LOD2Distance = DefaultConfig.LOD2Distance;
         LOD3Distance = DefaultConfig.LOD3Distance;
+
+        UseParallel = DefaultConfig.UseParallel;
     }
 
     private BoidSettings ToBoidSettings()
@@ -106,6 +110,7 @@ public class BoidSettingsBridge : MonoBehaviour
             LOD1Distance = LOD1Distance,
             LOD2Distance = LOD2Distance,
             LOD3Distance = LOD3Distance,
+            UseParallel = UseParallel
         };
     }
 }

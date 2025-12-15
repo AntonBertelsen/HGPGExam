@@ -63,13 +63,23 @@ public partial struct BoidSystem : ISystem
         };
 
         // Schedule the job and chain the disposal of our temporary arrays.
-        var jobHandle = boidJob.ScheduleParallel(state.Dependency);
+        if (config.UseParallel)
+        {
+            var jobHandle = boidJob.ScheduleParallel(state.Dependency);
+            jobHandle = boids.Dispose(jobHandle);
+            jobHandle = transforms.Dispose(jobHandle);
+            jobHandle = velocities.Dispose(jobHandle);
+            state.Dependency = jobHandle;
+        }
+        else
+        {
+            var jobHandle = boidJob.Schedule(state.Dependency);
+            jobHandle = boids.Dispose(jobHandle);
+            jobHandle = transforms.Dispose(jobHandle);
+            jobHandle = velocities.Dispose(jobHandle);
+            state.Dependency = jobHandle;
+        }
 
-        jobHandle = boids.Dispose(jobHandle);
-        jobHandle = transforms.Dispose(jobHandle);
-        jobHandle = velocities.Dispose(jobHandle);
-
-        state.Dependency = jobHandle;
     }
 }
 
