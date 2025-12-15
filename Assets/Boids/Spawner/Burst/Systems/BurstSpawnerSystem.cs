@@ -40,9 +40,6 @@ public partial struct BurstSpawnerSystem : ISystem
 
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(boid);
                 newVelocity.ValueRW.Value = random.NextFloat3Direction() * 5f;
-                
-                PhysicsMass mass = PhysicsMass.CreateKinematic(MassProperties.UnitSphere);
-                ecb.SetComponent(boid, mass);
                 // We set the energy level in the lander component to some randomized value. This is to prevent an issue
                 // we had where every bird would run out of energy at the same time and try to land all at once
                 var lander = SystemAPI.GetComponentRW<Lander>(boid);

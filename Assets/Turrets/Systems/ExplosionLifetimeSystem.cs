@@ -44,8 +44,11 @@ partial struct ExplosionLifetimeSystem : ISystem
                     if (dist < transform.ValueRO.Scale*10)
                     {
                         boidTag.ValueRW.dead = true;
-                        PhysicsMass mass = PhysicsMass.CreateDynamic(MassProperties.UnitSphere, 1);
-                        ecb.SetComponent(entityBoid, mass);
+                        var bird = ecb.Instantiate(explosion.ValueRO.physicsBird);
+                        ecb.SetComponent(bird, boidTrans.ValueRW);
+                        ecb.SetComponent(bird, boidVel.ValueRW);
+                        ecb.SetComponent(bird, boidTag.ValueRW);
+                        ecb.DestroyEntity(entityBoid);
                     }
                     else
                     {
