@@ -5,6 +5,7 @@ class BurstBoidSpawnerBaker : MonoBehaviour
 {
     public GameObject prefab;
     public int count = 10_000;
+    public float InitialSpeed = 10f;
 }
 
 class BurstBoidSpawnerAuthoringBaker : Baker<BurstBoidSpawnerBaker>
@@ -16,7 +17,8 @@ class BurstBoidSpawnerAuthoringBaker : Baker<BurstBoidSpawnerBaker>
         AddComponent(spawnerEntity, new BurstSpawnerComponent
         {
             prefab = GetEntity(baker.prefab, TransformUsageFlags.Dynamic),
-            count = baker.count
+            count = baker.count,
+            InitialSpeed = baker.InitialSpeed
         });
     }
 }

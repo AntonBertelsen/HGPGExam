@@ -276,7 +276,7 @@ public partial struct BoidJob : IJobEntity
         }
         
         
-        if (HasFlowField)
+        if (HasFlowField && Config.FlowmapWeight > 0.001f)
         {
             // Sample the field at our current position
             //float3 flowForce = GetFlowFieldForce(currentTransform.Position);
@@ -287,14 +287,6 @@ public partial struct BoidJob : IJobEntity
                 float3 steerForce = SteerTowards(flowDir, currentVelocity.Value, Config.MaxSteerForce * 5f);
                 acceleration += steerForce * Config.FlowmapWeight;
             }
-            
-            
-            
-            //if (math.lengthsq(flowForce) > 0.0f)
-            //{
-            //    // Note: Debug.DrawLine works in Burst but requires 'using UnityEngine;'
-            //    Debug.DrawLine(currentTransform.Position, currentTransform.Position + flowForce * 2.0f, Color.magenta);
-            //}
         }
 
         if (obstacleAvoidance.DirectionIndex != 0)

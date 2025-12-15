@@ -87,10 +87,20 @@ public partial struct SpatialHashingSystem : ISystem
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
         ref var cellMap = ref gridData.ValueRW.CellMap;
 
+        if (cellMap.IsCreated && cellMap.Capacity < boidCount)
+        {
+            cellMap.Dispose();
+        }
+        
         if (!cellMap.IsCreated)
-            cellMap = new NativeParallelMultiHashMap<int, int>(boidCount, Allocator.Persistent);
+        {
+            cellMap = new NativeParallelMultiHashMap<int, int>(boidCount * 2, Allocator.Persistent); //allocate with double capacity so we have room to grow
+        }
         else
+        {
+            // The map is big enough, just clear it for reuse
             cellMap.Clear();
+        }
 
         var writer = cellMap.AsParallelWriter();
 

@@ -28,7 +28,6 @@ partial struct TurretSystem : ISystem
     {
         var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag, LocalTransform>().Build();
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
-        var deadBirds = birdsQuery.ToComponentDataArray<BoidTag>(Allocator.TempJob);
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
 
 
@@ -298,7 +297,7 @@ partial struct TurretSystem : ISystem
         
        if (tempRotation.x > 30 || tempRotation.x < -180)
        {
-            turretTransform.Rotation = turretTransform.Rotation;
+            //turretTransform.Rotation = turretTransform.Rotation;
             returnValue.Item1 = turretPreviousTargetingDirection;
         } else
        {
