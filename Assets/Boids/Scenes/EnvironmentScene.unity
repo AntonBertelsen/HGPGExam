@@ -4407,7 +4407,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Use mouse1 to orbit
+  m_text: '
+
+
+    Use mouse1 to orbit
 
     Use mouse2 to pan
 
@@ -4417,28 +4420,25 @@ MonoBehaviour:
     can also use WASD to move the camera
 
 
-    Press R to reset the simulation
+    Press Space to throw a bird bomb
 
 
     Press
-    E to throw a bird bomb
+    C to throw a large cube
+
+    (Make sure to enable dynamic obstacle avoidance
+    in simulation settings)
 
 
-    Press C to throw a large cube
-
-    (Make sure to
-    enable dynamic obstacle avoidance in simulation settings)
+    Press T to place a turret at the cursors location
 
 
-    Press T to place
-    a turret at the cursors location
+    Press
+    B to spawn birds at the cursors location
 
 
-    Press B to spawn birds at the cursors
-    location
-
-
-    Press F to toggle bird follow cam'
+    Press F to toggle bird follow
+    cam'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2100000, guid: e73a58f6e2794ae7b1b7e50b7fb811b0, type: 2}
@@ -4574,7 +4574,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Boundary Weight
+  m_text: Boundary
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -7845,7 +7845,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1981384864}
         m_TargetAssemblyTypeName: UIGameInteraction, Assembly-CSharp
-        m_MethodName: ClearBoids
+        m_MethodName: ClearSimulation
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -10352,7 +10352,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Flowmap Weight
+  m_text: Flowmap
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -11053,7 +11053,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Avoidance Weight
+  m_text: Dynamic
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -11118,7 +11118,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: -13.19973, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -11963,6 +11963,8 @@ MonoBehaviour:
   maxZoom: 90
   panSpeed: 50
   allowKeyboardPan: 1
+  isFollowingBird: 0
+  followSmoothing: 5
 --- !u!4 &1242124240
 Transform:
   m_ObjectHideFlags: 0
@@ -14822,7 +14824,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Alignment Weight
+  m_text: 'Alignment '
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -15613,7 +15615,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Separation Weight
+  m_text: Separation
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -19617,7 +19619,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawnPoint: {fileID: 2074353488}
+  mainCam: {fileID: 774862362}
   spawnAmountInput: {fileID: 1050622287}
+  throwForce: 40
+  eggSpawnKey: 32
+  birdSpawnKey: 98
+  throwCubeKey: 99
+  placeTurretKey: 116
+  cameraRig: {fileID: 1242124239}
+  followCamKey: 102
 --- !u!114 &1981384865
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20763,7 +20773,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Cohesion Weight
+  m_text: Cohesion
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -21037,7 +21047,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Landing Weight
+  m_text: Landing
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

@@ -29,13 +29,23 @@ public struct BoidSettings : IComponentData
 
 public struct BoidSpawnerReference : IComponentData
 {
-    public Entity SpawnerPrefab;
+    public Entity BurstSpawnerPrefab;
+    public Entity ContinuousSpawnerPrefab;
+    public Entity EggPrefab;
+    public Entity ObstaclePrefab;
+    public Entity TurretPrefab;
 }
 
 public class BoidSettingsBaker : MonoBehaviour
 {
     public BoidConfigAsset DefaultConfig;
-    public GameObject SpawnerPrefab;
+    
+    [Header("Prefabs")]
+    public GameObject BurstSpawnerPrefab;
+    public GameObject ContinuousSpawnerPrefab;
+    public GameObject EggPrefab;
+    public GameObject ObstaclePrefab;
+    public GameObject TurretPrefab;
 }
 
 public class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
@@ -70,13 +80,14 @@ public class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
             LOD2Distance = authoring.DefaultConfig.LOD2Distance,
             LOD3Distance = authoring.DefaultConfig.LOD3Distance
         });
-
-        if (authoring.SpawnerPrefab != null)
+        
+        AddComponent(entity, new BoidSpawnerReference
         {
-            AddComponent(entity, new BoidSpawnerReference
-            {
-                SpawnerPrefab = GetEntity(authoring.SpawnerPrefab, TransformUsageFlags.Dynamic)
-            });
-        }
+            BurstSpawnerPrefab = GetEntity(authoring.BurstSpawnerPrefab, TransformUsageFlags.Dynamic),
+            ContinuousSpawnerPrefab = GetEntity(authoring.ContinuousSpawnerPrefab, TransformUsageFlags.Dynamic),
+            EggPrefab = GetEntity(authoring.EggPrefab, TransformUsageFlags.Dynamic),
+            ObstaclePrefab = GetEntity(authoring.ObstaclePrefab, TransformUsageFlags.Dynamic),
+            TurretPrefab = GetEntity(authoring.TurretPrefab, TransformUsageFlags.Dynamic)
+        });
     }
 }

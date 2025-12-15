@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Unity.Entities;
+using Unity.Transforms;
+using Unity.Mathematics;
 
 public class OrbitCameraRig : MonoBehaviour
 {
@@ -21,6 +24,10 @@ public class OrbitCameraRig : MonoBehaviour
     [Header("Panning Settings")]
     public float panSpeed = 10f;
     public bool allowKeyboardPan = true;
+    
+    [Header("Follow Settings")]
+    public bool isFollowingBird = false;
+    public float followSmoothing = 5f;
 
     private Vector3 targetPosition;
     private float yaw;
@@ -29,6 +36,9 @@ public class OrbitCameraRig : MonoBehaviour
     // For dealing with UI sliders which should override the click drag rotate behaviour
     private bool _canRotate = false;
     private bool _canPan = false;
+    
+    private Entity _followedEntity = Entity.Null;
+    private EntityManager _em;
 
     void Start()
     {
@@ -48,17 +58,31 @@ public class OrbitCameraRig : MonoBehaviour
         targetZoom = currentZoom = (cameraTransform.localPosition.magnitude > 0f)
             ? cameraTransform.localPosition.magnitude
             : 20f;
+        
+        if (World.DefaultGameObjectInjectionWorld != null)
+        {
+            _em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        }
     }
 
     void LateUpdate()
     {
+        
         HandleRotation();
         HandleZoom();
-        HandlePanning();
 
+        if (isFollowingBird)
+        {
+            UpdateFollowTarget();
+        }
+        else
+        {
+            HandlePanning();
+        }
+        
         // Update rig position smoothly
-        Vector3 desiredPos = targetPosition;
-        transform.position = Vector3.Lerp(transform.position, desiredPos, Time.deltaTime * smoothing);
+        float smoothVal = isFollowingBird ? followSmoothing : smoothing;
+        transform.position = Vector3.Lerp(transform.position, targetPosition, Time.deltaTime * smoothVal);
 
         // Apply rotation
         transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(pitch, yaw, 0), Time.deltaTime * smoothing);
@@ -69,6 +93,70 @@ public class OrbitCameraRig : MonoBehaviour
             new Vector3(0, 0, -targetZoom),
             Time.deltaTime * smoothing * 1.5f
         );
+    }
+    
+    public void ToggleFollowMode()
+    {
+        isFollowingBird = !isFollowingBird;
+
+        if (isFollowingBird)
+        {
+            FindNewBirdTarget();
+        }
+        else
+        {
+            // When exiting follow mode, we just stay where we are (targetPosition is already set to the last known bird pos)
+            _followedEntity = Entity.Null;
+        }
+    }
+
+    private void FindNewBirdTarget()
+    {
+        // Safety check for World/EntityManager
+        if (_em.World == null)
+        {
+            if (World.DefaultGameObjectInjectionWorld != null) 
+                _em = World.DefaultGameObjectInjectionWorld.EntityManager;
+            else return;
+        }
+
+        // Query for ANY Boid
+        var query = _em.CreateEntityQuery(typeof(BoidTag), typeof(LocalTransform));
+        if (query.IsEmpty)
+        {
+            Debug.LogWarning("No birds found to follow!");
+            isFollowingBird = false;
+            return;
+        }
+
+        // Pick the first one (or random)
+        var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+        if (entities.Length > 0)
+        {
+            // Optional: Pick a random one so pressing 'F' repeatedly cycles through them
+            int index = UnityEngine.Random.Range(0, entities.Length);
+            _followedEntity = entities[index];
+        }
+        entities.Dispose();
+    }
+
+    private void UpdateFollowTarget()
+    {
+        // Check if entity is valid (it might have died or been cleared)
+        if (_em.World == null || _followedEntity == Entity.Null || !_em.Exists(_followedEntity))
+        {
+            // Entity lost -> Return to free cam
+            isFollowingBird = false;
+            _followedEntity = Entity.Null;
+            return;
+        }
+
+        // Read Position from ECS
+        if (_em.HasComponent<LocalTransform>(_followedEntity))
+        {
+            float3 birdPos = _em.GetComponentData<LocalTransform>(_followedEntity).Position;
+            targetPosition = birdPos;
+        }
     }
 
     void HandleRotation()
