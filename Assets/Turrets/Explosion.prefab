@@ -127,7 +127,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   timeLived: 0
   lifeExpetancy: 3
-  explosionForce: 750
+  explosionForce: 30
   explosionDistance: 20
 --- !u!2083052967 &6436763570888663838
 VisualEffect:

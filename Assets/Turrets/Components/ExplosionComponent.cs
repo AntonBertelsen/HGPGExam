@@ -9,3 +9,11 @@ public struct ExplosionComponent : IComponentData
     public float explosionForce;
     public float explosionDistance;
 }
+
+public struct ActiveExplosionElement : IBufferElementData
+{
+    public float3 Position;
+    public float Force;
+    public float RadiusSq;
+}
+public struct ExplosionManagerTag : IComponentData { }

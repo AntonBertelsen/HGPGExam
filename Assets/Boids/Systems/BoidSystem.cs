@@ -19,6 +19,7 @@ public partial struct BoidSystem : ISystem
     {
         // We require the config to exist.
         state.RequireForUpdate<BoidSettings>();
+        state.RequireForUpdate<ExplosionManagerTag>();
 
         _directions = BoidHelper.Directions;
 
@@ -46,6 +47,10 @@ public partial struct BoidSystem : ISystem
         if (boids.Length == 0)
             return;
 
+        var singletonEntity = SystemAPI.GetSingletonEntity<ExplosionManagerTag>();
+        var explosionBuffer = SystemAPI.GetBuffer<ActiveExplosionElement>(singletonEntity);
+        
+        
         var boidJob = new BoidJob
         {
             Config = config,
@@ -59,7 +64,8 @@ public partial struct BoidSystem : ISystem
             
             HasFlowField = hasFlowField,
             FlowField = flowField,
-            Bounds = boundary
+            Bounds = boundary,
+            Explosions = explosionBuffer.AsNativeArray()
         };
 
         // Schedule the job and chain the disposal of our temporary arrays.
@@ -102,6 +108,8 @@ public partial struct BoidJob : IJobEntity
     [ReadOnly] public FlowFieldData FlowField;
 
     [ReadOnly] public BoundaryComponent Bounds;
+    
+    [ReadOnly] public NativeArray<ActiveExplosionElement> Explosions;
 
     // This 'Execute' method runs for EACH boid.
     private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag,
@@ -311,6 +319,31 @@ public partial struct BoidJob : IJobEntity
         // Limit the final speed
         currentVelocity.Value = math.clamp(math.length(currentVelocity.Value), Config.MinSpeed, Config.MaxSpeed) *
                                 math.normalizesafe(currentVelocity.Value);
+        
+        // Explosion force is applied after clamping to allow velocities above maxSpeed
+        for (int e = 0; e < Explosions.Length; e++)
+        {
+            var exp = Explosions[e];
+            float3 toBoid = currentTransform.Position - exp.Position;
+            float distSq = math.lengthsq(toBoid);
+
+            if (distSq < exp.RadiusSq)
+            {
+                float dist = math.sqrt(distSq);
+                
+                float3 dir = (dist > 0.001f) ? toBoid / dist : new float3(0,1,0); // protect against divide by zero 
+            
+                // linear falloff
+                float falloff = 1.0f - (distSq / exp.RadiusSq); 
+                
+                currentVelocity.Value += dir * (exp.Force * falloff);
+                
+                if (distSq < (exp.RadiusSq * 0.1f)) 
+                {
+                    // boidTag.dead = true; 
+                }
+            }
+        }
     }
 
     private float3 SteerTowards(float3 vector, float3 velocity, float maxSteer)
