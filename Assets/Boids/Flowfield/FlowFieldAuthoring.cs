@@ -302,6 +302,7 @@ public class FlowFieldBaker : Baker<FlowFieldAuthoring>
         }
 
         var blobRef = builder.CreateBlobAssetReference<FlowFieldBlob>(Allocator.Persistent);
+        AddBlobAsset(ref blobRef, out var hash);
         builder.Dispose();
 
         AddComponent(entity, new FlowFieldData

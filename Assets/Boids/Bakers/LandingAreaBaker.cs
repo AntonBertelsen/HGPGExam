@@ -70,6 +70,7 @@ public class LandingAreaAuthoringBaker : Baker<LandingAreaBaker>
         }
 
         var blobRef = builder.CreateBlobAssetReference<LandingAreaMeshBlob>(Allocator.Persistent);
+        AddBlobAsset(ref blobRef, out var hash);
         builder.Dispose();
         
         var filter = new CollisionFilter
