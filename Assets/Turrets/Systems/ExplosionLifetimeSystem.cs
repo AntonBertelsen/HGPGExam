@@ -43,7 +43,8 @@ public partial struct ExplosionLifetimeSystem : ISystem
                 {
                     Position = transform.ValueRO.Position,
                     Force = explosion.ValueRO.explosionForce,
-                    RadiusSq = explosion.ValueRO.explosionDistance * explosion.ValueRO.explosionDistance
+                    RadiusSq = explosion.ValueRO.explosionDistance * explosion.ValueRO.explosionDistance,
+                    physicsBird = explosion.ValueRO.physicsBird
                 });
             }
 

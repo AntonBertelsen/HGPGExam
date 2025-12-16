@@ -17,5 +17,6 @@ public struct ActiveExplosionElement : IBufferElementData
     public float3 Position;
     public float Force;
     public float RadiusSq;
+    public Entity physicsBird;
 }
 public struct ExplosionManagerTag : IComponentData { }

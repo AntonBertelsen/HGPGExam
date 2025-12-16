@@ -3,7 +3,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
 using Random = Unity.Mathematics.Random;
 
 [BurstCompile]
@@ -20,6 +19,7 @@ public partial struct BoidSystem : ISystem
         state.RequireForUpdate<BoidSettings>();
         state.RequireForUpdate<ExplosionManagerTag>();
         state.RequireForUpdate<SpatialGridData>();
+        state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
 
         _directions = BoidHelper.Directions;
 
@@ -44,6 +44,9 @@ public partial struct BoidSystem : ISystem
         var singletonEntity = SystemAPI.GetSingletonEntity<ExplosionManagerTag>();
         var explosionBuffer = SystemAPI.GetBuffer<ActiveExplosionElement>(singletonEntity);
         
+        var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter();
+        
         var boidJob = new BoidJob
         {
             Config = config,
@@ -55,7 +58,8 @@ public partial struct BoidSystem : ISystem
             HasFlowField = hasFlowField,
             FlowField = flowField,
             Bounds = boundary,
-            Explosions = explosionBuffer.AsNativeArray()
+            Explosions = explosionBuffer.AsNativeArray(),
+            ECB = ecb,
         };
 
         // Schedule the job and chain the disposal of our temporary arrays.
@@ -83,19 +87,19 @@ public partial struct BoidJob : IJobEntity
     [ReadOnly] public NativeParallelMultiHashMap<int, BoidData> Grid;
     [ReadOnly] public SpatialHashGrid3D Hash;
     
-    public bool HasFlowField;
+    [ReadOnly] public bool HasFlowField;
     [ReadOnly] public FlowFieldData FlowField;
 
     [ReadOnly] public BoundaryComponent Bounds;
     
     [ReadOnly] public NativeArray<ActiveExplosionElement> Explosions;
     
+    public EntityCommandBuffer.ParallelWriter ECB;
     
-    private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag,
+    
+    private void Execute(Entity currentEntity, [EntityIndexInQuery] int sortKey, ref Velocity currentVelocity,
         in LocalTransform currentTransform, in ObstacleAvoidance obstacleAvoidance, in Lander lander)
     {
-        if (boidTag.dead) return;
-        
         // Check if we have been blown away by an explosion (velocity > MaxSpeed)
         float currentSpeedSq = math.lengthsq(currentVelocity.Value);
 
@@ -290,6 +294,16 @@ public partial struct BoidJob : IJobEntity
 
             if (distSq < exp.RadiusSq)
             {
+                if (distSq < (exp.RadiusSq * 0.15f)) 
+                {
+                    var deadBird = ECB.Instantiate(sortKey, exp.physicsBird);
+                    ECB.SetComponent(sortKey, deadBird, currentTransform);
+                    //ECB.AddComponent(sortKey, deadBird, currentVelocity);
+                    ECB.AddComponent(sortKey, deadBird, new PendingDespawn { TimeRemaining = 3.5f });
+                    ECB.DestroyEntity(sortKey, currentEntity);
+                    return; 
+                }
+                
                 float dist = math.sqrt(distSq);
                 
                 float3 dir = (dist > 0.001f) ? toBoid / dist : new float3(0,1,0); // protect against divide by zero 
@@ -298,11 +312,6 @@ public partial struct BoidJob : IJobEntity
                 float falloff = 1.0f - (distSq / exp.RadiusSq); 
                 
                 currentVelocity.Value += dir * (exp.Force * falloff);
-                
-                if (distSq < (exp.RadiusSq * 0.1f)) 
-                {
-                    // boidTag.dead = true; 
-                }
             }
         }
     }

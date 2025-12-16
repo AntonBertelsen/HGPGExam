@@ -29,4 +29,7 @@ MonoBehaviour:
   LOD1Distance: 30
   LOD2Distance: 60
   LOD3Distance: 90
+  MaxConsideredNeighbors: 5
+  FlowMapEnabled: 1
+  DynamicAvoidanceEnabled: 0
   UseParallel: 1

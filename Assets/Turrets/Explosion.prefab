@@ -59,7 +59,7 @@ MonoBehaviour:
   lifeExpetancy: 3
   explosionForce: 30
   explosionDistance: 20
-  prefab: {fileID: 8449456927542751932, guid: 62931e5d93f99b54ab79b48d344aad77, type: 3}
+  prefab: {fileID: 8449456927542751932, guid: 3d699f80e4b0fb24bbcc5361febb4d34, type: 3}
 --- !u!2083052967 &6436763570888663838
 VisualEffect:
   m_ObjectHideFlags: 0

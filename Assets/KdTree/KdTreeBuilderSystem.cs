@@ -6,7 +6,7 @@ using Unity.Physics;
 using Unity.Transforms;
 
 [BurstCompile]
-[UpdateInGroup(typeof(PostBakingSystemGroup))]
+//[UpdateInGroup(typeof(PostBakingSystemGroup))] // Seems to break everything 
 public partial struct KdTreeBuilderSystem : ISystem
 {
     private EntityQuery _landingAreaQuery;

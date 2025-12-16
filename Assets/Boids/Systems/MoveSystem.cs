@@ -11,7 +11,6 @@ public partial struct MoveSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<BoidSettings>();
-        state.RequireForUpdate<PhysicsStep>();
     }
 
     [BurstCompile]
