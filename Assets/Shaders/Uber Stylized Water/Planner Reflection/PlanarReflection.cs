@@ -37,7 +37,7 @@ public class PlanarReflectionVolume : MonoBehaviour
     void OnEnable()
     {
         RenderPipelineManager.beginCameraRendering += DoPlanarReflections;
-        reflectionLayer = ~(1 << 4);
+        //reflectionLayer = ~(1 << 4);
         UpdateBounds();
 
         // Get the material from the reflection target
