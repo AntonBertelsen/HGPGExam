@@ -6,6 +6,7 @@ using UnityEngine;
 using Random = Unity.Mathematics.Random;
 
 [BurstCompile]
+[UpdateBefore(typeof(SpatialHashingSystem))]
 public partial struct BurstSpawnerSystem : ISystem
 {
     
@@ -39,7 +40,6 @@ public partial struct BurstSpawnerSystem : ISystem
 
                 var newVelocity = SystemAPI.GetComponentRW<Velocity>(boid);
                 newVelocity.ValueRW.Value = random.NextFloat3Direction() * speed * random.NextFloat(0.9f, 1.1f);
-
                 // We set the energy level in the lander component to some randomized value. This is to prevent an issue
                 // we had where every bird would run out of energy at the same time and try to land all at once
                 var lander = SystemAPI.GetComponentRW<Lander>(boid);

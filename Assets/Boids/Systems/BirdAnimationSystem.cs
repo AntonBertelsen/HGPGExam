@@ -5,10 +5,13 @@ using Unity.Mathematics;
 using Unity.Transforms;
 
 [BurstCompile]
+[UpdateAfter(typeof(MoveSystem))]
+[UpdateAfter(typeof(LanderSystem))]
 public partial struct BirdAnimationSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
+        state.RequireForUpdate<BoidSettings>();
         state.RequireForUpdate<KdTree>();
     }
 

@@ -6,6 +6,7 @@ using Unity.Physics;
 using Unity.Transforms;
 
 [BurstCompile]
+[UpdateInGroup(typeof(PostBakingSystemGroup))]
 public partial struct KdTreeBuilderSystem : ISystem
 {
     private EntityQuery _landingAreaQuery;
