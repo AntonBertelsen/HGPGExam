@@ -5,6 +5,7 @@ using Unity.Physics;
 using Unity.Transforms;
 
 [BurstCompile]
+[UpdateAfter(typeof(BoidSystem))]
 public partial struct MoveSystem : ISystem
 {
     public void OnCreate(ref SystemState state)

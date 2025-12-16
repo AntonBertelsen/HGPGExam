@@ -6,6 +6,7 @@ using UnityEngine;
 using Random = Unity.Mathematics.Random;
 
 [BurstCompile]
+[UpdateBefore(typeof(SpatialHashingSystem))]
 public partial struct BurstSpawnerSystem : ISystem
 {
     

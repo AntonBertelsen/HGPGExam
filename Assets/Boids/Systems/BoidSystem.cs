@@ -8,6 +8,7 @@ using Random = Unity.Mathematics.Random;
 [BurstCompile]
 [UpdateBefore(typeof(MoveSystem))] // Calculate new velocity before it's used for movement
 [UpdateAfter(typeof(SpatialHashingSystem))]
+[UpdateAfter(typeof(ObstacleAvoidanceSystem))]
 public partial struct BoidSystem : ISystem
 {
     private EntityQuery boidQuery;

@@ -8,14 +8,10 @@ using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+[UpdateAfter(typeof(BoidSystem))]
+[UpdateAfter(typeof(ExplosionSystem))]
 partial struct ExplosionLifetimeSystem : ISystem
 {
-    [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    {
-        state.RequireForUpdate<BulletComponent>();   
-    }
-
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

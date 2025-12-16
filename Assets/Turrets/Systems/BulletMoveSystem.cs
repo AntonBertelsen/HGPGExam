@@ -4,8 +4,14 @@ using Unity.Transforms;
 using UnityEngine;
 
 [BurstCompile]
+[UpdateAfter(typeof(TurretSystem))]
 public partial struct BulletMoveSystem : ISystem
 {
+    public void OnCreate(ref SystemState state)
+    {
+        state.RequireForUpdate<BoidSettings>();
+    }
+
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

@@ -1,14 +1,9 @@
-using System;
-using System.Linq;
-using System.Security.Cryptography;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
-using UnityEngine.UIElements;
-using Random = System.Random;
 
 [UpdateAfter(typeof(SpatialHashingSystem))]
 
@@ -30,13 +25,10 @@ partial struct TurretSystem : ISystem
         var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
 
-
         if (birds.Length == 0)
         {
             return;
         }
-
-
 
         foreach (var (turret, transform, toWorld, turretEntity) in
                  SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>()
