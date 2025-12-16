@@ -1,7 +1,7 @@
 using Unity.Entities;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct BulletCleanupSystem : ISystem
+public partial struct DespawnSystem : ISystem
 {
     public void OnUpdate(ref SystemState state)
     {
