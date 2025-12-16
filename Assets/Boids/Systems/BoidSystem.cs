@@ -133,7 +133,8 @@ public partial struct BoidJob : IJobEntity
         var cell = Hash.GetCellCoords(currentTransform.Position);
 
         int consideredNeighbors = Config.MaxConsideredNeighbors;
-        int neighborsProcessed = 0;
+        var upperNeighborBound = consideredNeighbors * consideredNeighbors;
+        int neighborsSeen = 0;
         float separationSq = Config.SeparationRadius * Config.SeparationRadius;
         float viewRadiusSq = Config.ViewRadius * Config.ViewRadius;
 
@@ -141,11 +142,15 @@ public partial struct BoidJob : IJobEntity
         // 1 * 1 + 1 * 3 + 1 * 9 = 13  (mapping 0,0,0 to 1,1,1 in 0-2 coordinates)
         const int centerIndex = 13;
         int startOffset = random.NextInt(0, 27);
+        var neighbors = new NativeArray<BoidData>(upperNeighborBound, Allocator.Temp);
+
+        if (consideredNeighbors == 0)
+        {
+            goto FlockCalculated;
+        }
 
         for (int i = 0; i < 27; i++)
         {
-            if (neighborsProcessed >= consideredNeighbors) break;
-            
             int index;
 
             // Always check our cell first because separation is most important
@@ -182,6 +187,7 @@ public partial struct BoidJob : IJobEntity
             {
                 continue;
             }
+            
             do
             {
                 if (otherBoid.Entity == currentEntity)
@@ -189,34 +195,47 @@ public partial struct BoidJob : IJobEntity
                     continue;
                 }
 
-                neighborsProcessed++;
-                if (neighborsProcessed > consideredNeighbors)
+                neighbors[neighborsSeen++] = otherBoid;
+
+                if (neighborsSeen == upperNeighborBound)
                 {
                     goto FlockCalculated;
-                }
-                
-                var otherPos = otherBoid.Position;
-                var otherVel = otherBoid.Velocity;
-                
-                var diff = otherPos - currentTransform.Position;
-                var dist2 = math.lengthsq(diff);
-                
-                if (dist2 > viewRadiusSq) continue;
-
-                flockSize++;
-                flockCentre += otherPos;
-                
-                flockVelocity += otherVel;
-
-                if (dist2 < Config.SeparationRadius * Config.SeparationRadius &&
-                    dist2 > 1e-6f) // Last check to avoid division by zero
-                {
-                    flockSeparation += (currentTransform.Position - otherPos) / dist2;
                 }
             } while (Grid.TryGetNextValue(out otherBoid, ref it));
         }
 
         FlockCalculated:
+        for (int n = 0; n < consideredNeighbors && neighborsSeen > 0; n++)
+        {
+            var i = random.NextInt(0, neighborsSeen);
+            var otherBoid = neighbors[i];
+            
+            // Swap remove to avoid processing the same neighbor again
+            neighborsSeen--;
+            if (neighborsSeen >= 0)
+            {
+                neighbors[i] = neighbors[neighborsSeen];
+            }
+
+            var otherPos = otherBoid.Position;
+            var otherVel = otherBoid.Velocity;
+
+            var diff = otherPos - currentTransform.Position;
+            var dist2 = math.lengthsq(diff);
+
+            if (dist2 > viewRadiusSq) continue;
+
+            flockSize++;
+            flockCentre += otherPos;
+
+            flockVelocity += otherVel;
+
+            if (dist2 < Config.SeparationRadius * Config.SeparationRadius &&
+                dist2 > 1e-6f) // Last check to avoid division by zero
+            {
+                flockSeparation += (currentTransform.Position - otherPos) / dist2;
+            }
+        }
         
         var acceleration = float3.zero;
         
