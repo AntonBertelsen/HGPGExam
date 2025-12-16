@@ -23,7 +23,7 @@ public partial struct ObstacleAvoidanceSystem : ISystem
     {
         var config = SystemAPI.GetSingleton<BoidSettings>();
         
-        if (config.AvoidanceWeight <= 0.001f) 
+        if (config.AvoidanceWeight <= 0.001f || !config.DynamicAvoidanceEnabled) 
             return;
         
         var job = new ObstacleAvoidanceJob

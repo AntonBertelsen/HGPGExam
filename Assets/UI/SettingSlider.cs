@@ -15,6 +15,7 @@ public class SettingSlider : MonoBehaviour
     private Slider _slider; 
     private bool _isUserInteracting;
     private FieldInfo _targetField;
+    private bool _isInteger;
 
     void Start()
     {
@@ -34,6 +35,17 @@ public class SettingSlider : MonoBehaviour
             enabled = false;
             return;
         }
+        if (_targetField.FieldType == typeof(int))
+        {
+            _isInteger = true;
+            _slider.wholeNumbers = true; // Force slider to snap to integers
+        }
+        else if (_targetField.FieldType == typeof(float))
+        {
+            _isInteger = false;
+            _slider.wholeNumbers = false;
+        }
+        
         _slider.onValueChanged.AddListener(OnSliderValueChanged);
         SyncFromDataToUI();
     }
@@ -48,9 +60,17 @@ public class SettingSlider : MonoBehaviour
         _isUserInteracting = true;
         if (_bridge != null && _targetField != null)
         {
-            // Set the value dynamically
-            _targetField.SetValue(_bridge, value);
-            textValue.SetText(value.ToString("F2"));
+            if (_isInteger)
+            {
+                int intVal = Mathf.RoundToInt(value);
+                _targetField.SetValue(_bridge, intVal);
+                if(textValue != null) textValue.SetText(intVal.ToString());
+            }
+            else
+            {
+                _targetField.SetValue(_bridge, value);
+                if(textValue != null) textValue.SetText(value.ToString("F2"));
+            }
         }
         _isUserInteracting = false;
     }
@@ -58,12 +78,31 @@ public class SettingSlider : MonoBehaviour
     private void SyncFromDataToUI()
     {
         // Get the value dynamically
-        float currentValue = (float)_targetField.GetValue(_bridge);
+        float currentValue;
+        
+        if (_isInteger)
+        {
+            int val = (int)_targetField.GetValue(_bridge);
+            currentValue = (float)val;
+        }
+        else
+        {
+            currentValue = (float)_targetField.GetValue(_bridge);
+        }
 
         if (Mathf.Abs(_slider.value - currentValue) > 0.001f)
         {
-            _slider.SetValueWithoutNotify(currentValue);
-            textValue.SetText(currentValue.ToString("F2"));
+            if (_isInteger)
+            {
+                int val = (int)_targetField.GetValue(_bridge);
+                _slider.SetValueWithoutNotify(val);
+                if(textValue != null) textValue.SetText(val.ToString());
+            }
+            else
+            {
+                _slider.SetValueWithoutNotify(currentValue);
+                textValue.SetText(currentValue.ToString("F2"));                
+            }
         }
     }
 }

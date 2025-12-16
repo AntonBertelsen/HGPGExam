@@ -21,11 +21,12 @@ MonoBehaviour:
   CohesionWeight: 2.3
   AvoidanceWeight: 1
   LandingWeight: 30
-  FlowmapWeight: 0.8
+  FlowmapWeight: 0.3
   MaxSpeed: 10
   MinSpeed: 5
   MaxSteerForce: 0.45
-  BoundaryWeight: 100
+  BoundaryWeight: 0.5
   LOD1Distance: 30
   LOD2Distance: 60
   LOD3Distance: 90
+  UseParallel: 1
