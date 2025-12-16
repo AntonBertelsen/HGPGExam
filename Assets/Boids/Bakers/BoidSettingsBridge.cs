@@ -25,6 +25,10 @@ public class BoidSettingsBridge : MonoBehaviour
     [HideInInspector] public float LOD1Distance;
     [HideInInspector] public float LOD2Distance;
     [HideInInspector] public float LOD3Distance;
+    
+    [HideInInspector] public int MaxConsideredNeighbors;
+    [HideInInspector] public bool FlowMapEnabled = true;
+    [HideInInspector] public bool DynamicAvoidanceEnabled = true;
 
     [HideInInspector] public bool UseParallel;
 
@@ -85,6 +89,10 @@ public class BoidSettingsBridge : MonoBehaviour
         LOD1Distance = DefaultConfig.LOD1Distance;
         LOD2Distance = DefaultConfig.LOD2Distance;
         LOD3Distance = DefaultConfig.LOD3Distance;
+        
+        MaxConsideredNeighbors = DefaultConfig.MaxConsideredNeighbors;
+        FlowMapEnabled = DefaultConfig.FlowMapEnabled;
+        DynamicAvoidanceEnabled = DefaultConfig.DynamicAvoidanceEnabled;
 
         UseParallel = DefaultConfig.UseParallel;
     }
@@ -110,6 +118,9 @@ public class BoidSettingsBridge : MonoBehaviour
             LOD1Distance = LOD1Distance,
             LOD2Distance = LOD2Distance,
             LOD3Distance = LOD3Distance,
+            MaxConsideredNeighbors = MaxConsideredNeighbors,
+            FlowMapEnabled = FlowMapEnabled,
+            DynamicAvoidanceEnabled = DynamicAvoidanceEnabled,
             UseParallel = UseParallel
         };
     }

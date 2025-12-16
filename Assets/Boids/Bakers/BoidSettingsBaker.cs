@@ -25,6 +25,10 @@ public struct BoidSettings : IComponentData
     public float LOD1Distance;
     public float LOD2Distance;
     public float LOD3Distance;
+    
+    public int MaxConsideredNeighbors;
+    public bool FlowMapEnabled;
+    public bool DynamicAvoidanceEnabled;
 
     public bool UseParallel;
 }
@@ -81,6 +85,10 @@ public class BoidSettingsBakerBaker : Baker<BoidSettingsBaker>
             LOD1Distance = authoring.DefaultConfig.LOD1Distance,
             LOD2Distance = authoring.DefaultConfig.LOD2Distance,
             LOD3Distance = authoring.DefaultConfig.LOD3Distance,
+            
+            MaxConsideredNeighbors = authoring.DefaultConfig.MaxConsideredNeighbors,
+            FlowMapEnabled = authoring.DefaultConfig.FlowMapEnabled,
+            DynamicAvoidanceEnabled = authoring.DefaultConfig.DynamicAvoidanceEnabled,
             
             UseParallel = authoring.DefaultConfig.UseParallel
         });

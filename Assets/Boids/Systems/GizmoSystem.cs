@@ -262,7 +262,7 @@ public partial struct GizmoSystem : ISystem
             Color wireColor = new Color(fillColorBase.r, fillColorBase.g, fillColorBase.b, normalizedCount * 0.65f); // Mostly opaque
 
             // --- Calculate Position and Size (same as before) ---
-            GetCellCoordsFromIndex(key, grid, out var cell);
+            int3 cell = grid.GetCoordsFromIndex(key);
             float3 worldPos = grid.Origin + (new float3(cell) + 0.5f) * grid.CellSize;
             float3 size = new float3(grid.CellSize);
 
@@ -278,13 +278,5 @@ public partial struct GizmoSystem : ISystem
 
         drawn.Dispose();
         keys.Dispose();
-    }
-    
-    private static void GetCellCoordsFromIndex(int index, SpatialHashGrid3D grid, out int3 cell)
-    {
-        int x = index % grid.GridDim.x;
-        int y = (index / grid.GridDim.x) % grid.GridDim.y;
-        int z = index / (grid.GridDim.x * grid.GridDim.y);
-        cell = new int3(x, y, z);
     }
 }

@@ -1,318 +1,234 @@
-using System;
-using System.Linq;
-using System.Security.Cryptography;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
-using UnityEngine.UIElements;
-using Random = System.Random;
 
 [UpdateAfter(typeof(SpatialHashingSystem))]
 
 partial struct TurretSystem : ISystem
 {
     private int frameCount;
-    private Unity.Mathematics.Random _random;
+    private Random _random;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        _random = new Unity.Mathematics.Random(42);
+        _random = new Random(42);
+        
+        state.RequireForUpdate<SpatialGridData>();
+        state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var birdsQuery = SystemAPI.QueryBuilder().WithAll<BoidTag, LocalTransform>().Build();
-        var birds = birdsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var gridData = SystemAPI.GetSingletonRW<SpatialGridData>();
 
+        var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter();
 
-        if (birds.Length == 0)
+        // We need to use these lookups in order to read / write to entities (the cannons) inside the job
+        var transformLookup = SystemAPI.GetComponentLookup<LocalTransform>(false);
+        var ltwLookup = SystemAPI.GetComponentLookup<LocalToWorld>(true);
+        var bulletLookup = SystemAPI.GetComponentLookup<BulletComponent>(true); // This is kind of hacky but we need to reference this to add the explosion prefab back when overwriting the bullet position. there is definitely a better way to handle this
+
+        var job = new TurretJob
         {
-            return;
-        }
+            ClusterMap = gridData.ValueRO.ClusterMap,
+            Grid = gridData.ValueRO.Grid,
+            TransformLookup = transformLookup,
+            LtwLookup = ltwLookup,
+            BulletLookup = bulletLookup,
+            ECB = ecb,
+            DeltaTime = SystemAPI.Time.DeltaTime,
+            CurrentTime = (uint)(SystemAPI.Time.ElapsedTime * 1000.0)
+        };
 
+        state.Dependency = job.ScheduleParallel(state.Dependency);
+    }
+}
 
+[BurstCompile]
+public partial struct TurretJob : IJobEntity
+{
+    [ReadOnly] public NativeParallelHashMap<int, int> ClusterMap;
+    public SpatialHashGrid3D Grid;
 
-        foreach (var (turret, transform, toWorld, turretEntity) in
-                 SystemAPI.Query<RefRW<TurretComponent>, RefRW<LocalTransform>, RefRW<LocalToWorld>>()
-                     .WithEntityAccess())
+    // We have to disable safety checks because we write to child entities (the cannons) 
+    // while iterating parent entities (the turrets). This is safe to do here because the hierarchies don't overlap. (I think)
+    [NativeDisableContainerSafetyRestriction] 
+    public ComponentLookup<LocalTransform> TransformLookup;
+    
+    [ReadOnly] public ComponentLookup<LocalToWorld> LtwLookup;
+    
+    [ReadOnly] public ComponentLookup<BulletComponent> BulletLookup;
+
+    public EntityCommandBuffer.ParallelWriter ECB;
+    public float DeltaTime;
+    public uint CurrentTime;
+
+    private void Execute(Entity entity, [EntityIndexInQuery] int sortKey, 
+                         ref TurretComponent turret, 
+                         ref LocalTransform transform)
+    {
+        // 1. Randomness (Replaces System.Random)
+        var random = Random.CreateFromIndex(CurrentTime ^ (uint)sortKey);
+        turret.frameCounter += random.NextInt(1, 5);
+
+        // TARGETING //
+        if (turret.frameCounter % 60 == 0)
         {
-            turret.ValueRW.frameCounter += _random.NextInt(1, 5);
-                // TARGETING //
-                if (turret.ValueRO.frameCounter % 60 == 0)
-                {
-                    if (turret.ValueRW.frameCounter > 100000)
-                    {
-                        turret.ValueRW.frameCounter = 0;
-                    }
-
-                    var keyCounts = new NativeHashMap<int, int>(10, Allocator.Temp);
-                var keyCountsUR = new NativeHashMap<int, int>(10, Allocator.Temp);
-                var keyCountsUL = new NativeHashMap<int, int>(10, Allocator.Temp);
-                var keyCountsDL = new NativeHashMap<int, int>(10, Allocator.Temp);
-                var keyCountsDR = new NativeHashMap<int, int>(10, Allocator.Temp);
-                var countBase = 0;
-                var countUR = 0;
-                var countUL = 0;
-                var countDL = 0;
-                var countDR = 0;
-
-
-                var keyBase = 0;
-                var keyUR = 0;
-                var keyUL = 0;
-                var keyDL = 0;
-                var keyDR = 0;
-
-                var keyValues = gridData.ValueRO.CellMap.GetKeyValueArrays(Allocator.Temp);
-                for (int i = 0; i < keyValues.Keys.Length; i++)
-                {
-                    int key = keyValues.Keys[i];
-
-                    var region = gridData.ValueRO.CellMap.TryGetFirstValue(key, out var value, out var ite);
-                    var birdPos = birds[value].Position;
-                    var dir = birdPos - transform.ValueRO.Position;
-
-                    if (math.length(dir) > turret.ValueRO.viewRadius) continue;
-                    //Add to main platform hashmap
-                    if (keyCounts.TryGetValue(key, out int count))
-                    {
-                        keyCounts[key] = count + 1;
-                        if (count + 1 > countBase)
-                        {
-                            countBase = count + 1;
-                            keyBase = key;
-                        }
-                    }
-                    else
-                    {
-                        keyCounts.Add(key, 1);
-                        if (countBase == 0)
-                        {
-                            countBase = 1;
-                            keyBase = key;
-                        }
-                    }
-
-                    //Add to turret hashmaps
-                    if (dir.z > 0 && dir.y > 0)
-                    {
-                        if (keyCountsUL.TryGetValue(key, out int count_))
-                        {
-                            keyCountsUL[key] = count_ + 1;
-                            if (count_ + 1 > countUL)
-                            {
-                                countUL = count_ + 1;
-                                keyUL = key;
-                            }
-                        }
-                        else
-                        {
-                            keyCountsUL.Add(key, 1);
-                            if (countUL == 0)
-                            {
-                                countUL = 1;
-                                keyUL = key;
-                            }
-                        }
-                    }
-                    else if (dir.z < 0 && dir.y > 0)
-                    {
-                        if (keyCountsUR.TryGetValue(key, out int count_))
-                        {
-                            keyCountsUR[key] = count_ + 1;
-                            if (count_ + 1 > countUR)
-                            {
-                                countUR = count_ + 1;
-                                keyUR = key;
-                            }
-                        }
-                        else
-                        {
-                            keyCountsUR.Add(key, 1);
-                            if (countUR == 0)
-                            {
-                                countUR = 1;
-                                keyUR = key;
-                            }
-                        }
-                    }
-                    else if (dir.z < 0 && dir.y < 0)
-                    {
-                        if (keyCountsDL.TryGetValue(key, out int count_))
-                        {
-                            keyCountsDL[key] = count_ + 1;
-                            if (count_ + 1 > countDL)
-                            {
-                                countDL = count_ + 1;
-                                keyDL = key;
-                            }
-                        }
-                        else
-                        {
-                            keyCountsDL.Add(key, 1);
-                            if (countDL == 0)
-                            {
-                                countDL = 1;
-                                keyDL = key;
-                            }
-                        }
-                    }
-                    else if (dir.z > 0 && dir.y < 0)
-                    {
-                        if (keyCountsDR.TryGetValue(key, out int count_))
-                        {
-                            keyCountsDR[key] = count_ + 1;
-                            if (count_ + 1 > countDR)
-                            {
-                                countDR = count_ + 1;
-                                keyDR = key;
-                            }
-                        }
-                        else
-                        {
-                            keyCountsDR.Add(key, 1);
-                            if (countDR == 0)
-                            {
-                                countDR = 1;
-                                keyDR = key;
-                            }
-                        }
-                    }
-                }
-
-            
-
-             //Target cluster with most birds for main platform
-             turret.ValueRW.target_center = countBase != 0 ? AquireTargetFromList(gridData, birds, keyBase) : new float3();
-            //Target cluster with most birds for main platform
-
-            turret.ValueRW.target_UR = countUL != 0 ? AquireTargetFromList(gridData, birds, keyUL) : float3.zero;
-            turret.ValueRW.target_UL = countUR != 0 ? AquireTargetFromList(gridData, birds, keyUR) : float3.zero;
-            turret.ValueRW.target_DL = countDL != 0 ? AquireTargetFromList(gridData, birds, keyDL) : float3.zero;
-            turret.ValueRW.target_DR = countDR != 0 ? AquireTargetFromList(gridData, birds, keyDR) : float3.zero;
-            
-            // TARGETING //
-            keyCounts.Dispose();
-            keyCountsUR.Dispose();
-            keyCountsUL.Dispose();
-            keyCountsDL.Dispose();
-            keyCountsDR.Dispose();
-
-            keyValues.Dispose(); 
-                }
-            var urHasMoved = false;
-            var ulHasMoved = false;
-            var dlHasMoved = false;
-            var drHasMoved = false;
-            
-            if (!turret.ValueRW.target_UL.Equals(float3.zero))
-                (turret.ValueRW.turret_UL_targetingDirection, turret.ValueRW.cannon_UL_targetingDirection, ulHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_UL_targetingDirection, turret.ValueRO.cannon_UL_targetingDirection,turret.ValueRW.turret_UL, turret.ValueRW.cannon_UL, turret.ValueRW.target_UL, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation, true, false);
-
-            if (!turret.ValueRW.target_UR.Equals(float3.zero))
-                (turret.ValueRW.turret_UR_targetingDirection, turret.ValueRW.cannon_UR_targetingDirection, urHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_UR_targetingDirection, turret.ValueRO.cannon_UR_targetingDirection, turret.ValueRW.turret_UR, turret.ValueRW.cannon_UR, turret.ValueRW.target_UR, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation,true, true);
-
-            if (!turret.ValueRW.target_DL.Equals(float3.zero))
-                (turret.ValueRW.turret_DL_targetingDirection, turret.ValueRW.cannon_DL_targetingDirection, dlHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_DL_targetingDirection, turret.ValueRO.cannon_DL_targetingDirection, turret.ValueRW.turret_DL, turret.ValueRW.cannon_DL, turret.ValueRW.target_DL, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation, false, false);
-
-            if (!turret.ValueRW.target_DR.Equals(float3.zero))
-                (turret.ValueRW.turret_DR_targetingDirection, turret.ValueRW.cannon_DR_targetingDirection, drHasMoved) = 
-                    MoveTurret(ref state, turret.ValueRO.turret_DR_targetingDirection, turret.ValueRO.cannon_DR_targetingDirection, turret.ValueRW.turret_DR, turret.ValueRW.cannon_DR, turret.ValueRW.target_DR, state.EntityManager.GetComponentData<LocalTransform>(turretEntity).Rotation,false, true);
-
-            turret.ValueRW.lastFireTime += SystemAPI.Time.DeltaTime;
-            if (turret.ValueRO.lastFireTime >= turret.ValueRO.fireRate)
+            if (turret.frameCounter > 100000)
             {
-                turret.ValueRW.lastFireTime = 0;
-                
-                if (!turret.ValueRW.target_UL.Equals(float3.zero) && urHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_UR, turret.ValueRO.bullet, turret.ValueRO.cannon_UR_targetingDirection);
-                if (!turret.ValueRW.target_UR.Equals(float3.zero) && ulHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_UL, turret.ValueRO.bullet, turret.ValueRO.cannon_UL_targetingDirection);
-                if (!turret.ValueRW.target_DL.Equals(float3.zero) && dlHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_DL, turret.ValueRO.bullet, turret.ValueRO.cannon_DL_targetingDirection);
-                if (!turret.ValueRW.target_DR.Equals(float3.zero) && drHasMoved)
-                    FireCannon(ref state, turret.ValueRW.cannon_DR, turret.ValueRO.bullet, turret.ValueRO.cannon_DR_targetingDirection);
+                turret.frameCounter = 0;
             }
             
-            // MOVE TURRET BASE //
-            if (!turret.ValueRW.target_center.Equals(float3.zero))
-            {
-                var direction = turret.ValueRW.target_center - transform.ValueRO.Position;
-                direction.y = 0;
-                transform.ValueRW.Rotation = Quaternion.RotateTowards(Quaternion.LookRotation(turret.ValueRO.targetingDirection), Quaternion.LookRotation(direction), 0.1f);
-                float3 forward = math.mul(transform.ValueRW.Rotation , new float3(0, 0, 1));
-                turret.ValueRW.targetingDirection = forward;
-            }
+            FindBestTargets(ref turret, transform.Position);
+        }
 
+        // TARGETING //
+        var urHasMoved = false;
+        var ulHasMoved = false;
+        var dlHasMoved = false;
+        var drHasMoved = false;
 
-            // MOVE TURRET BASE //
-            
+        if (!turret.target_UL.Equals(float3.zero))
+            (turret.turret_UL_targetingDirection, turret.cannon_UL_targetingDirection, ulHasMoved) = 
+                MoveTurret(turret.turret_UL_targetingDirection, turret.cannon_UL_targetingDirection, 
+                           turret.turret_UL, turret.cannon_UL, turret.target_UL, transform.Rotation, true, false);
 
-            
+        if (!turret.target_UR.Equals(float3.zero))
+            (turret.turret_UR_targetingDirection, turret.cannon_UR_targetingDirection, urHasMoved) = 
+                MoveTurret(turret.turret_UR_targetingDirection, turret.cannon_UR_targetingDirection, 
+                           turret.turret_UR, turret.cannon_UR, turret.target_UR, transform.Rotation, true, true);
+        
+        if (!turret.target_DL.Equals(float3.zero))
+            (turret.turret_DL_targetingDirection, turret.cannon_DL_targetingDirection, dlHasMoved) = 
+                MoveTurret(turret.turret_DL_targetingDirection, turret.cannon_DL_targetingDirection, 
+                           turret.turret_DL, turret.cannon_DL, turret.target_DL, transform.Rotation, false, false);
 
+        if (!turret.target_DR.Equals(float3.zero))
+            (turret.turret_DR_targetingDirection, turret.cannon_DR_targetingDirection, drHasMoved) = 
+                MoveTurret(turret.turret_DR_targetingDirection, turret.cannon_DR_targetingDirection, 
+                           turret.turret_DR, turret.cannon_DR, turret.target_DR, transform.Rotation, false, true);
+        
+        
+        turret.lastFireTime += DeltaTime;
+        if (turret.lastFireTime >= turret.fireRate)
+        {
+            turret.lastFireTime = 0;
+            if (!turret.target_UR.Equals(float3.zero) && urHasMoved) 
+                FireCannon(sortKey, turret.cannon_UR, turret.bullet, turret.cannon_UR_targetingDirection);
+            if (!turret.target_UL.Equals(float3.zero) && ulHasMoved)
+                FireCannon(sortKey, turret.cannon_UL, turret.bullet, turret.cannon_UL_targetingDirection);
+            if (!turret.target_DL.Equals(float3.zero) && dlHasMoved)
+                FireCannon(sortKey, turret.cannon_DL, turret.bullet, turret.cannon_DL_targetingDirection);
+            if (!turret.target_DR.Equals(float3.zero) && drHasMoved)
+                FireCannon(sortKey, turret.cannon_DR, turret.bullet, turret.cannon_DR_targetingDirection);
+        }
+
+        // MOVE TURRET BASE //
+        if (!turret.target_center.Equals(float3.zero)) 
+        {
+            float3 direction = turret.target_center - transform.Position;
+            direction.y = 0;
+            quaternion targetRot = quaternion.LookRotationSafe(direction, math.up());
+            transform.Rotation = math.slerp(transform.Rotation, targetRot, 0.1f);
+            float3 forward = math.mul(transform.Rotation , new float3(0, 0, 1));
+            turret.targetingDirection = forward;
         }
         
-        birds.Dispose();
-        
+        // MOVE TURRET BASE //
     }
 
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
+    private void FindBestTargets(ref TurretComponent turret, float3 turretPos)
     {
+        int bestBase = 0, bestUL = 0, bestUR = 0, bestDL = 0, bestDR = 0;
+        turret.target_center = float3.zero;
+        turret.target_UL = float3.zero;
+        turret.target_UR = float3.zero;
+        turret.target_DL = float3.zero;
+        turret.target_DR = float3.zero;
         
+        float3 cellHalfSize = new float3(Grid.CellSize * 0.5f);
+
+        foreach (var kvp in ClusterMap)
+        {
+            int key = kvp.Key;
+            int count = kvp.Value;
+            
+            var coords = Grid.GetCoordsFromIndex(key);
+            var cellPos = Grid.Origin + (new float3(coords) * Grid.CellSize) + cellHalfSize;
+            var dir = cellPos - turretPos;
+
+            if (math.length(dir) > turret.viewRadius) continue;
+            
+            bool forward = dir.z > 0;
+            bool right = dir.y > 0;
+
+            if (count > bestBase) { bestBase = count; turret.target_center = cellPos; }
+
+            if (forward && right)      { if (count > bestUL) { bestUL = count; turret.target_UL = cellPos; } }
+            else if (!forward && right){ if (count > bestUR) { bestUR = count; turret.target_UR = cellPos; } }
+            else if (!forward && !right){ if (count > bestDL) { bestDL = count; turret.target_DL = cellPos; } }
+            else                       { if (count > bestDR) { bestDR = count; turret.target_DR = cellPos; } }
+        }
     }
+    
     [BurstCompile]
-    public (float3,float3,bool) MoveTurret(ref SystemState state, float3 turretPreviousTargetingDirection, float3 cannonPreviousTargetingDirection, Entity turret, Entity cannon, float3 target, Quaternion motherTurretRotation, bool up, bool right)
+    private (float3, float3, bool) MoveTurret(float3 turretPreviousTargetingDirection, float3 cannonPreviousTargetingDirection, 
+                                               Entity turret, Entity cannon, 
+                                               float3 target, quaternion motherTurretRotation, bool up, bool right)
     {
-        var entityManager = state.EntityManager;
-        var turretTransform = state.EntityManager.GetComponentData<LocalTransform>(turret);
-        var cannonTransform = state.EntityManager.GetComponentData<LocalTransform>(cannon);
-        var turretTransformWorld = state.EntityManager.GetComponentData<LocalToWorld>(turret);
-        var cannonTransformWorld = state.EntityManager.GetComponentData<LocalToWorld>(cannon);
+        var turretTransform = TransformLookup[turret];
+        var cannonTransform = TransformLookup[cannon];
+        var turretTransformWorld = LtwLookup[turret];
+        var cannonTransformWorld = LtwLookup[cannon];
 
         var returnValue = (new float3(0, 0, 1), new float3(0, 0, 1), false);
         
         var direction = target - turretTransformWorld.Position;
-            
-        var lookRotation = Quaternion.RotateTowards(Quaternion.LookRotation(turretPreviousTargetingDirection), Quaternion.LookRotation(direction), 1f);
+        
+        quaternion currentLook = quaternion.LookRotationSafe(turretPreviousTargetingDirection, math.up());
+        quaternion targetLook = quaternion.LookRotationSafe(direction, math.up());
+        
+        var lookRotation = math.slerp(currentLook, targetLook, 0.1f); 
         float magnitude = math.length(direction);
-        Vector3 resultingDirection = lookRotation * Vector3.forward * magnitude;
+        float3 resultingDirection = math.mul(lookRotation, new float3(0, 0, 1)) * magnitude;
+        
+        float3 euler = math.degrees(math.Euler(lookRotation)); 
+        float3 motherEuler = math.degrees(math.Euler(motherTurretRotation));
 
-        Vector3 euler = lookRotation.eulerAngles;
         euler.x = 0;
-        euler.y -= motherTurretRotation.eulerAngles.y;
+        euler.y -= motherEuler.y;
         euler.z = 0;
-        if(!up && !right || up && right) euler.y *= -1;
+        if ((!up && !right) || (up && right)) euler.y *= -1;
         
+        var tempRotation = quaternion.Euler(math.radians(euler.x), math.radians(euler.y), math.radians(euler.z));
         
-        var tempRotation = Quaternion.Euler(0, euler.y, 0);
-        
-       if (tempRotation.x > 30 || tempRotation.x < -180)
-       {
-            //turretTransform.Rotation = turretTransform.Rotation;
+        if (euler.x > 30 || euler.x < -180)
+        {
             returnValue.Item1 = turretPreviousTargetingDirection;
-        } else
-       {
+        }
+        else 
+        {
             turretTransform.Rotation = tempRotation;
             returnValue.Item1 = resultingDirection;
-            entityManager.SetComponentData(turret, turretTransform);
+            TransformLookup[turret] = turretTransform;
             returnValue.Item3 = true;
-       }
+        }
         
         var cannonDirection = target - cannonTransformWorld.Position;
         float originalMagnitude = math.length(cannonDirection);
-        var cannonLookRotation = Quaternion.RotateTowards(Quaternion.LookRotation(cannonPreviousTargetingDirection), Quaternion.LookRotation(cannonDirection), 1f);
-        Vector3 cannonResultingDirection = cannonLookRotation * Vector3.forward * originalMagnitude;
+        
+        var cannonCurrentLook = quaternion.LookRotationSafe(cannonPreviousTargetingDirection, math.up());
+        var cannonTargetLook = quaternion.LookRotationSafe(cannonDirection, math.up());
+        var cannonLookRotation = math.slerp(cannonCurrentLook, cannonTargetLook, 0.1f);
+        float3 cannonResultingDirection = math.mul(cannonLookRotation, new float3(0, 0, 1)) * originalMagnitude;
 
-        Vector3 cannonEuler = cannonLookRotation.eulerAngles;
+        float3 cannonEuler = math.degrees(math.Euler(cannonLookRotation));
         cannonEuler.y = euler.y;
         cannonEuler.z = 0;
         if (up == false)
@@ -320,46 +236,51 @@ partial struct TurretSystem : ISystem
             cannonEuler.x *= -1;
         }
             
-        var cannonTempRotation = Quaternion.Euler(cannonEuler);
+        var cannonTempRotation = quaternion.Euler(math.radians(cannonEuler.x), math.radians(cannonEuler.y), math.radians(cannonEuler.z));
         
-        if (cannonTempRotation.x > 30 || cannonTempRotation.x < -180)
+        if (cannonEuler.x > 30 || cannonEuler.x < -180)
         {
-            //cannonTransform.Rotation = cannonTransform.Rotation;
             returnValue.Item2 = cannonPreviousTargetingDirection;
-        } else
+        }
+        else
         {
             cannonTransform.Rotation = cannonTempRotation;
             returnValue.Item2 = cannonResultingDirection;
-            entityManager.SetComponentData(cannon, cannonTransform);
+            TransformLookup[cannon] = cannonTransform;
         }
 
         return returnValue;
     }
+
     [BurstCompile]
-    public void FireCannon(ref SystemState state, Entity cannon, Entity bullet, float3 direction)
+    public void FireCannon(int sortKey, Entity cannon, Entity bulletPrefab, float3 aimingDir)
     {
-            var cannonTransform = state.EntityManager.GetComponentData<LocalToWorld>(cannon);
+        var cannonTransform = LtwLookup[cannon];
 
-            Entity newEntity = state.EntityManager.Instantiate(bullet);
-
-            var newTransform = SystemAPI.GetComponentRW<LocalTransform>(newEntity);
-            var bulletComponent = SystemAPI.GetComponentRW<BulletComponent>(newEntity);
-            bulletComponent.ValueRW.timeToExplode = math.length(direction) / 50;
-                
-            float3 dir = math.mul(cannonTransform.Rotation, new float3(0, 0, 1));
-
-            newTransform.ValueRW.Position = cannonTransform.Position;
-            newTransform.ValueRW.Position += dir * 1.5f;
-            newTransform.ValueRW.Rotation = cannonTransform.Rotation;
-            
-            var newVelocity = SystemAPI.GetComponentRW<BulletVelocity>(newEntity);
-            newVelocity.ValueRW.Value = direction / math.length(direction) * 40;
-    }
-    [BurstCompile]
-    public float3 AquireTargetFromList(RefRW<SpatialGridData> gridData, NativeArray<LocalTransform> birds, int key)
-    {
-        gridData.ValueRO.CellMap.TryGetFirstValue(key, out var firsValue, out var it);
-        return birds[firsValue].Position;
+        Entity newEntity = ECB.Instantiate(sortKey, bulletPrefab);
         
+        float3 dir = math.normalize(aimingDir);
+        float3 spawnPos = cannonTransform.Position + (dir * 1.5f);
+
+        ECB.SetComponent(sortKey, newEntity, new LocalTransform
+        {
+            Position = spawnPos,
+            Rotation = cannonTransform.Rotation,
+            Scale = 1f
+        });
+        
+        // Hacky way to overwrite the timeToExplode and keeping the explosion reference from the prefab. Perhaps we should split it into a separate component to avoid having to pass this reference.
+        var bulletDefaults = BulletLookup[bulletPrefab];
+        
+        ECB.SetComponent(sortKey, newEntity, new BulletComponent
+        {
+            timeToExplode = math.length(aimingDir) / 50f,
+            explosion = bulletDefaults.explosion, 
+        });
+
+        ECB.SetComponent(sortKey, newEntity, new BulletVelocity
+        {
+            Value = dir * 40f
+        });
     }
 }

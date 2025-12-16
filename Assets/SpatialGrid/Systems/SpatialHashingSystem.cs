@@ -6,9 +6,24 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 
+
+public struct BoidData
+{
+    public Entity Entity;
+    public float3 Position;
+    public float3 Velocity;
+}
+
 public struct SpatialGridData : IComponentData
 {
-    public NativeParallelMultiHashMap<int, int> CellMap;
+    public NativeParallelMultiHashMap<int, BoidData> CellMap;
+    
+    // Cell Index -> Boid Count
+    public NativeParallelHashMap<int, int> ClusterMap;
+    
+    public NativeParallelHashMap<int, bool> ActiveCellsMap; // Used for deduplication during ActiveCellsList duplication
+    public NativeList<int> ActiveCellsList;
+    
     public SpatialHashGrid3D Grid;
     public int BoidCount;
 }
@@ -23,13 +38,19 @@ public partial struct SpatialHashingSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<BoidSettings>();
-        // 1. Require the boundary component so we can align the grid to it
         state.RequireForUpdate<BoundaryComponent>();
         
         boidQuery = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<BoidTag, LocalTransform>()
+            .WithAll<BoidTag, LocalTransform, Velocity>()
             .Build(ref state);
-        state.EntityManager.AddComponentData(state.SystemHandle, new SpatialGridData());
+        
+        state.EntityManager.AddComponentData(state.SystemHandle, new SpatialGridData 
+        {
+            CellMap = new NativeParallelMultiHashMap<int, BoidData>(0, Allocator.Persistent),
+            ClusterMap = new NativeParallelHashMap<int, int>(0, Allocator.Persistent),
+            ActiveCellsMap = new NativeParallelHashMap<int, bool>(0, Allocator.Persistent),
+            ActiveCellsList = new NativeList<int>(0, Allocator.Persistent)
+        }); // We initialize with persistent empty containers so we dont have to allocate temp buffers every frame which was causing stalls on main thread adn causing all workers to sit idle
     }
 
     [BurstCompile]
@@ -39,6 +60,12 @@ public partial struct SpatialHashingSystem : ISystem
         {
             if (gridData.ValueRW.CellMap.IsCreated)
                 gridData.ValueRW.CellMap.Dispose();
+            if (gridData.ValueRW.ClusterMap.IsCreated) 
+                gridData.ValueRW.ClusterMap.Dispose();
+            if (gridData.ValueRW.ActiveCellsMap.IsCreated) 
+                gridData.ValueRW.ActiveCellsMap.Dispose();
+            if (gridData.ValueRW.ActiveCellsList.IsCreated) 
+                gridData.ValueRW.ActiveCellsList.Dispose();
         }
     }
 
@@ -46,23 +73,15 @@ public partial struct SpatialHashingSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var config = SystemAPI.GetSingleton<BoidSettings>();
-        // 2. Fetch the boundary
         var boundary = SystemAPI.GetSingleton<BoundaryComponent>();
         
         var boidCount = boidQuery.CalculateEntityCount();
 
         if (boidCount == 0)
             return;
-
-        var transforms = boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
-        var positions = new NativeArray<float3>(boidCount, Allocator.TempJob);
-        for (int i = 0; i < boidCount; i++)
-            positions[i] = transforms[i].Position;
-
-        // 3. Define Grid Parameters based on BOUNDARY, not Config
-        float cellSize = config.ViewRadius;
         
-        // Calculate the bottom-left corner of the boundary box
+        float cellSize = config.ViewRadius;
+
         float3 boundsMin = boundary.Center - (boundary.Size * 0.5f);
         
         // Calculate dimensions based on the boundary size
@@ -71,9 +90,6 @@ public partial struct SpatialHashingSystem : ISystem
             (int)math.ceil(boundary.Size.y / cellSize),
             (int)math.ceil(boundary.Size.z / cellSize)
         );
-        
-        // Add a padding buffer to the grid dimension to prevent edge-case "out of bounds" errors 
-        // if a boid slightly overshoots the boundary before being steered back.
         gridDim += new int3(2, 2, 2);
         boundsMin -= new float3(cellSize, cellSize, cellSize);
 
@@ -94,46 +110,153 @@ public partial struct SpatialHashingSystem : ISystem
         
         if (!cellMap.IsCreated)
         {
-            cellMap = new NativeParallelMultiHashMap<int, int>(boidCount * 2, Allocator.Persistent); //allocate with double capacity so we have room to grow
+            cellMap = new NativeParallelMultiHashMap<int, BoidData>(boidCount * 2, Allocator.Persistent); //allocate with double capacity so we have room to grow
         }
         else
         {
             // The map is big enough, just clear it for reuse
             cellMap.Clear();
         }
-
-        var writer = cellMap.AsParallelWriter();
+        
+        ref var clusterMap = ref gridData.ValueRW.ClusterMap;
+        
+        if (clusterMap.IsCreated && clusterMap.Capacity < boidCount)
+        {
+            clusterMap.Dispose();
+        }
+        
+        if (!clusterMap.IsCreated)
+        {
+            clusterMap = new NativeParallelHashMap<int, int>(boidCount, Allocator.Persistent);
+        }
+        else
+        {
+            // The map is big enough, just clear it for reuse
+            clusterMap.Clear();
+        }
+        
+        ref var activeCellsMap = ref gridData.ValueRW.ActiveCellsMap;
+        
+        if (activeCellsMap.IsCreated && activeCellsMap.Capacity < boidCount)
+        {
+            activeCellsMap.Dispose();
+        }
+        
+        if (!activeCellsMap.IsCreated)
+        {
+            activeCellsMap = new NativeParallelHashMap<int, bool>(boidCount, Allocator.Persistent);
+        }
+        else
+        {
+            // The map is big enough, just clear it for reuse
+            activeCellsMap.Clear();
+        }
+        
+        
+        if (gridData.ValueRW.ActiveCellsList.Capacity < boidCount) 
+            gridData.ValueRW.ActiveCellsList.Capacity = boidCount;
+        gridData.ValueRW.ActiveCellsList.Clear();
 
         var buildJob = new BuildGridJob
         {
-            Positions = positions,
-            GridWriter = writer,
+            GridWriter = gridData.ValueRW.CellMap.AsParallelWriter(),
+            ActiveCellsMapWriter = gridData.ValueRW.ActiveCellsMap.AsParallelWriter(),
+            ActiveCellsListWriter = gridData.ValueRW.ActiveCellsList.AsParallelWriter(),
             Grid = gridStruct
         };
+        
+        var gridHandle = buildJob.ScheduleParallel(boidQuery, state.Dependency);
 
-        var handle = buildJob.Schedule(boidCount, 64, state.Dependency);
-        handle.Complete();
+        var clusterJob = new BuildClusterJob
+        {
+            Keys = gridData.ValueRW.ActiveCellsList.AsDeferredJobArray(), // "Deferred" means "Wait for the previous job to fill this"
+            CellMap = gridData.ValueRW.CellMap,
+            ClusterMapWriter = gridData.ValueRW.ClusterMap.AsParallelWriter()
+        };
+        
+        state.Dependency = clusterJob.Schedule(gridData.ValueRW.ActiveCellsList, 64, gridHandle);;
 
         gridData.ValueRW.Grid = gridStruct;
         gridData.ValueRW.BoidCount = boidCount;
-
-        positions.Dispose();
-        transforms.Dispose();
     }
 
     [BurstCompile]
-    private struct BuildGridJob : IJobParallelFor
+    private partial struct BuildGridJob : IJobEntity
     {
-        [ReadOnly] public NativeArray<float3> Positions;
-        public NativeParallelMultiHashMap<int, int>.ParallelWriter GridWriter;
+        public NativeParallelMultiHashMap<int, BoidData>.ParallelWriter GridWriter;
+        
+        public NativeParallelHashMap<int, bool>.ParallelWriter ActiveCellsMapWriter;
+        public NativeList<int>.ParallelWriter ActiveCellsListWriter;
+        
         [ReadOnly] public SpatialHashGrid3D Grid;
+
+        private void Execute(Entity entity, in LocalTransform transform, in Velocity velocity)
+        {
+            int3 cell = Grid.GetCellCoords(transform.Position);
+            int key = Grid.GetCellIndex(cell);
+
+            // Store boid data with position and velocity which will allow the boid system to access this information very quickly later
+            GridWriter.Add(key, new BoidData
+            {
+                Entity = entity,
+                Position = transform.Position,
+                Velocity = velocity.Value
+            });
+            
+            if (ActiveCellsMapWriter.TryAdd(key, true))
+            {
+                // We are the first thread to claim this cell, so we add it to the list.
+                ActiveCellsListWriter.AddNoResize(key);
+            }
+        }
+    }
+
+    
+    // This is used to count the number of boids per cell. We do this once while building the spatial data structure in order to significantly speed up turret targeting later.
+    [BurstCompile]
+    private struct BuildClusterJob : IJobParallelForDefer
+    {
+        [ReadOnly] public NativeArray<int> Keys;
+        [ReadOnly] public NativeParallelMultiHashMap<int, BoidData> CellMap;
+        public NativeParallelHashMap<int, int>.ParallelWriter ClusterMapWriter;
 
         public void Execute(int i)
         {
-            int3 cell = Grid.GetCellCoords(Positions[i]);
-            int key = Grid.GetCellIndex(cell);
-            GridWriter.Add(key, i);
+            int key = Keys[i];
+            int count = 0;
+
+            if (CellMap.TryGetFirstValue(key, out BoidData _, out var it))
+            {
+                do
+                {
+                    count++;
+                } while (CellMap.TryGetNextValue(out _, ref it));
+            }
+
+            ClusterMapWriter.TryAdd(key, count);
         }
+    }
+    
+    private void CheckAndResize<TKey, TValue>(ref NativeParallelMultiHashMap<TKey, TValue> map, int capacity) 
+        where TKey : unmanaged, System.IEquatable<TKey> where TValue : unmanaged
+    {
+        if (!map.IsCreated || map.Capacity < capacity)
+        {
+            if (map.IsCreated) map.Dispose();
+            map = new NativeParallelMultiHashMap<TKey, TValue>(capacity, Allocator.Persistent);
+        }
+        else map.Clear();
+    }
+    
+    private void CheckAndResize<TKey, TValue>(ref NativeParallelHashMap<TKey, TValue> map, int capacity) 
+        where TKey : unmanaged, System.IEquatable<TKey> where TValue : unmanaged
+    {
+        if (!map.IsCreated || map.Capacity < capacity)
+        {
+            if (map.IsCreated) map.Dispose();
+            map = new NativeParallelHashMap<TKey, TValue>(capacity, Allocator.Persistent);
+        }
+        else map.Clear();
     }
 }
 
@@ -161,50 +284,16 @@ public struct SpatialHashGrid3D
         c = math.clamp(c, int3.zero, GridDim - 1);
         return c.x + c.y * GridDim.x + c.z * GridDim.x * GridDim.y;
     }
-}
-
-public static class SpatialQuery
-{
-    public static int FindNearest(
-        float3 position, int selfIndex,
-        in SpatialHashGrid3D grid,
-        in NativeParallelMultiHashMap<int,int> cellMap,
-        in NativeArray<float3> positions)
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int3 GetCoordsFromIndex(int index)
     {
-        int3 center = grid.GetCellCoords(position);
-        int3 dim = grid.GridDim;
-        float bestDistSq = float.MaxValue;
-        int bestIndex = -1;
+        int dimXY = GridDim.x * GridDim.y;
 
-        // Optimized search radius to just check immediate neighbors (3x3x3)
-        // Checking the whole grid size is extremely expensive and defeats the purpose of the grid.
-        int radius = 1; 
-
-        for (int x = -radius; x <= radius; x++)
-        for (int y = -radius; y <= radius; y++)
-        for (int z = -radius; z <= radius; z++)
-        {
-            int3 cell = center + new int3(x,y,z);
-            if (cell.x < 0 || cell.y < 0 || cell.z < 0 ||
-                cell.x >= dim.x || cell.y >= dim.y || cell.z >= dim.z)
-                continue;
-
-            int key = grid.GetCellIndex(cell);
-            if (cellMap.TryGetFirstValue(key, out int other, out var it))
-            {
-                do
-                {
-                    if (other == selfIndex) continue;
-                    float distSq = math.distancesq(position, positions[other]);
-                    if (distSq < bestDistSq)
-                    {
-                        bestDistSq = distSq;
-                        bestIndex = other;
-                    }
-                } while (cellMap.TryGetNextValue(out other, ref it));
-            }
-        }
-
-        return bestIndex;
+        int z = index / dimXY;
+        int rem = index % dimXY;
+        int y = rem / GridDim.x;
+        int x = rem % GridDim.x;
+        return new int3(x, y, z);
     }
 }

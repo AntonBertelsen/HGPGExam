@@ -29,6 +29,11 @@ public class BoidConfigAsset : ScriptableObject
     public float LOD1Distance = 50f;
     public float LOD2Distance = 100f;
     public float LOD3Distance = 150f;
+    
+    [Header("Performance")]
+    public int MaxConsideredNeighbors = 5;
+    public bool FlowMapEnabled = true;
+    public bool DynamicAvoidanceEnabled = true;
 
     [Header("UseParallel")] 
     public bool UseParallel = true;

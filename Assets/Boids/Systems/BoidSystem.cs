@@ -4,7 +4,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
-using UnityEngine.Rendering;
 using Random = Unity.Mathematics.Random;
 
 [BurstCompile]
@@ -20,6 +19,7 @@ public partial struct BoidSystem : ISystem
         // We require the config to exist.
         state.RequireForUpdate<BoidSettings>();
         state.RequireForUpdate<ExplosionManagerTag>();
+        state.RequireForUpdate<SpatialGridData>();
 
         _directions = BoidHelper.Directions;
 
@@ -32,6 +32,8 @@ public partial struct BoidSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        if (boidQuery.CalculateEntityCount() == 0) return;
+        
         var config = SystemAPI.GetSingleton<BoidSettings>();
         var gridData = SystemAPI.GetSingleton<SpatialGridData>();
         var boundary = SystemAPI.GetSingleton<BoundaryComponent>();
@@ -39,24 +41,12 @@ public partial struct BoidSystem : ISystem
         FlowFieldData flowField = default;
         bool hasFlowField = SystemAPI.TryGetSingleton(out flowField);
 
-        // This is the brute-force part. We copy all boid data into arrays.
-        var boids = boidQuery.ToEntityArray(Allocator.TempJob);
-        var transforms = boidQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
-        var velocities = boidQuery.ToComponentDataArray<Velocity>(Allocator.TempJob);
-
-        if (boids.Length == 0)
-            return;
-
         var singletonEntity = SystemAPI.GetSingletonEntity<ExplosionManagerTag>();
         var explosionBuffer = SystemAPI.GetBuffer<ActiveExplosionElement>(singletonEntity);
-        
         
         var boidJob = new BoidJob
         {
             Config = config,
-            Entities = boids,
-            Transforms = transforms,
-            Velocities = velocities,
             Directions = _directions,
             Grid = gridData.CellMap,
             Hash = gridData.Grid,
@@ -72,20 +62,13 @@ public partial struct BoidSystem : ISystem
         if (config.UseParallel)
         {
             var jobHandle = boidJob.ScheduleParallel(state.Dependency);
-            jobHandle = boids.Dispose(jobHandle);
-            jobHandle = transforms.Dispose(jobHandle);
-            jobHandle = velocities.Dispose(jobHandle);
             state.Dependency = jobHandle;
         }
         else
         {
             var jobHandle = boidJob.Schedule(state.Dependency);
-            jobHandle = boids.Dispose(jobHandle);
-            jobHandle = transforms.Dispose(jobHandle);
-            jobHandle = velocities.Dispose(jobHandle);
             state.Dependency = jobHandle;
         }
-
     }
 }
 
@@ -96,12 +79,8 @@ public partial struct BoidJob : IJobEntity
     public float DeltaTime; 
 
     [ReadOnly] public NativeArray<float3> Directions;
-
-    // These arrays contain the data for ALL boids in the simulation.
-    [ReadOnly] public NativeArray<Entity> Entities;
-    [ReadOnly] public NativeArray<LocalTransform> Transforms;
-    [ReadOnly] public NativeArray<Velocity> Velocities;
-    [ReadOnly] public NativeParallelMultiHashMap<int, int> Grid;
+    
+    [ReadOnly] public NativeParallelMultiHashMap<int, BoidData> Grid;
     [ReadOnly] public SpatialHashGrid3D Hash;
     
     public bool HasFlowField;
@@ -110,19 +89,23 @@ public partial struct BoidJob : IJobEntity
     [ReadOnly] public BoundaryComponent Bounds;
     
     [ReadOnly] public NativeArray<ActiveExplosionElement> Explosions;
-
-    // This 'Execute' method runs for EACH boid.
+    
+    
     private void Execute(Entity currentEntity, ref Velocity currentVelocity, ref BoidTag boidTag,
         in LocalTransform currentTransform, in ObstacleAvoidance obstacleAvoidance, in Lander lander)
     {
         if (boidTag.dead) return;
         
         // Check if we have been blown away by an explosion (velocity > MaxSpeed)
-        float currentSpeed = math.length(currentVelocity.Value);
+        float currentSpeedSq = math.lengthsq(currentVelocity.Value);
+
+        // Precalculate squared speeds to avoid square roots later
+        float maxSpeedSq = Config.MaxSpeed * Config.MaxSpeed;
+        float minSpeedSq = Config.MinSpeed * Config.MinSpeed;
         
         // If we are moving faster than the boid physics allows, we are "tumbling".
         // In this state, we ignore boid rules and simply decelerate due to drag.
-        if (currentSpeed > Config.MaxSpeed * 1.2f)
+        if (currentSpeedSq > maxSpeedSq * 1.2f)
         {
             // Calculate drag. A value of 2.0f means they recover control quickly. 
             // 0.5f means they fly helpless for longer.
@@ -133,158 +116,129 @@ public partial struct BoidJob : IJobEntity
                 math.normalizesafe(currentVelocity.Value) * Config.MaxSpeed, 
                 DeltaTime * recoveryDrag);
             
-            // Early return! 
-            // We skip cohesion/alignment because you can't align with friends 
-            // while you are tumbling through the air at 100mph.
             return; 
         }
 
         var random = new Random((uint)currentEntity.Index);
+        
         var flockSize = 0;
         var flockCentre = float3.zero;
         var flockVelocity = float3.zero;
         var flockSeparation = float3.zero;
 
         var cell = Hash.GetCellCoords(currentTransform.Position);
-        var neighborCount = 0;
-        const int maxNeighbors = 4;
-        const int consideredNeighbors = maxNeighbors * 8;
 
-        for (var dx = -1; dx <= 1; dx++)
-        for (var dy = -1; dy <= 1; dy++)
-        for (var dz = -1; dz <= 1; dz++)
+        int consideredNeighbors = Config.MaxConsideredNeighbors;
+        int neighborsProcessed = 0;
+        float separationSq = Config.SeparationRadius * Config.SeparationRadius;
+        float viewRadiusSq = Config.ViewRadius * Config.ViewRadius;
+
+        // The center of a 3x3x3 grid (0..26) is index 13.
+        // 1 * 1 + 1 * 3 + 1 * 9 = 13  (mapping 0,0,0 to 1,1,1 in 0-2 coordinates)
+        const int centerIndex = 13;
+        int startOffset = random.NextInt(0, 27);
+
+        for (int i = 0; i < 27; i++)
         {
+            if (neighborsProcessed >= consideredNeighbors) break;
+            
+            int index;
+
+            // Always check our cell first because separation is most important
+            if (i == 0)
+            {
+                index = centerIndex;
+            }
+            else
+            {
+                // Calculate the random index based on offset
+                int rawIndex = (startOffset + i) % 27;
+
+                // If the random index happens to be 13 (which we already did at i=0),
+                // we swap it with the index we overwrote at i=0 (which was startOffset).
+                if (rawIndex == centerIndex)
+                {
+                    index = startOffset;
+                }
+                else
+                {
+                    index = rawIndex;
+                }
+            }
+
+            // decode index into dx, dy, dz (-1 to 1)
+            int dx = (index % 3) - 1;
+            int dy = ((index / 3) % 3) - 1;
+            int dz = ((index / 9) % 3) - 1;
+
             var neighborCell = cell + new int3(dx, dy, dz);
             var key = Hash.GetCellIndex(neighborCell);
 
-            if (!Grid.TryGetFirstValue(key, out var otherIdx, out var it))
+            if (!Grid.TryGetFirstValue(key, out BoidData otherBoid, out var it))
             {
                 continue;
             }
-
             do
             {
-                if (Entities[otherIdx] == currentEntity)
+                if (otherBoid.Entity == currentEntity)
                 {
                     continue;
                 }
 
-                neighborCount++;
-
-                if (neighborCount > consideredNeighbors)
-                {
-                    goto NeighborsCounted;
-                }
-            } while (Grid.TryGetNextValue(out otherIdx, ref it));
-        }
-
-        NeighborsCounted:
-        var inc = math.max(1, math.min(neighborCount, maxNeighbors) / (double)maxNeighbors);
-        var i = 0;
-        var next = (int)math.floor(inc);
-
-        var iteration = random.NextInt(0, 7) switch
-        {
-            0 => new int3(1, 1, 1),
-            1 => new int3(-1, 1, 1),
-            2 => new int3(-1, -1, 1),
-            3 => new int3(-1, -1, -1),
-            4 => new int3(1, -1, 1),
-            5 => new int3(1, -1, -1),
-            _ => new int3(1, 1, -1),
-        };
-
-        // Always check our cell first because separation is most important
-        System.ReadOnlySpan<int> offsets = stackalloc int[3] {0, 1, -1};
-        
-        foreach (var dxi in offsets)
-        foreach (var dyi in offsets)
-        foreach (var dzi in offsets)
-        {
-            var dx = dxi * iteration.x;
-            var dy = dyi * iteration.y;
-            var dz = dzi * iteration.z;
-            var neighborCell = cell + random.NextInt(0, 6) switch
-            {
-                0 => new int3(dx, dy, dz),
-                1 => new int3(dx, dz, dy),
-                2 => new int3(dy, dx, dz),
-                3 => new int3(dy, dz, dx),
-                4 => new int3(dz, dx, dy),
-                _ => new int3(dz, dy, dx),
-            };
-            var key = Hash.GetCellIndex(neighborCell);
-
-            if (!Grid.TryGetFirstValue(key, out var otherIdx, out var it))
-            {
-                continue;
-            }
-
-            do
-            {
-                if (Entities[otherIdx] == currentEntity)
-                {
-                    continue;
-                }
-
-                i++;
-                if (i > consideredNeighbors)
+                neighborsProcessed++;
+                if (neighborsProcessed > consideredNeighbors)
                 {
                     goto FlockCalculated;
                 }
-
-                if (i != next)
-                {
-                    continue;
-                }
-
-                next = (int)math.floor(i + inc);
-
-                var otherPos = Transforms[otherIdx].Position;
+                
+                var otherPos = otherBoid.Position;
+                var otherVel = otherBoid.Velocity;
+                
                 var diff = otherPos - currentTransform.Position;
                 var dist2 = math.lengthsq(diff);
+                
+                if (dist2 > viewRadiusSq) continue;
 
                 flockSize++;
                 flockCentre += otherPos;
-
-                var otherVelocity = Velocities[otherIdx];
-                flockVelocity += otherVelocity.Value;
+                
+                flockVelocity += otherVel;
 
                 if (dist2 < Config.SeparationRadius * Config.SeparationRadius &&
                     dist2 > 1e-6f) // Last check to avoid division by zero
                 {
-                    var offset = currentTransform.Position - otherPos;
-                    flockSeparation += offset / dist2;
+                    flockSeparation += (currentTransform.Position - otherPos) / dist2;
                 }
-            } while (Grid.TryGetNextValue(out otherIdx, ref it));
+            } while (Grid.TryGetNextValue(out otherBoid, ref it));
         }
 
         FlockCalculated:
+        
         var acceleration = float3.zero;
         
         if (flockSize != 0)
         {
             flockCentre /= flockSize;
-            var flockOffset = flockCentre - currentTransform.Position;
-
-            var cohesion = SteerTowards(flockOffset, currentVelocity.Value) * Config.CohesionWeight;
-            var alignment = SteerTowards(flockVelocity, currentVelocity.Value) * Config.AlignmentWeight;
-            var separation = SteerTowards(flockSeparation, currentVelocity.Value) * Config.SeparationWeight;
-
-            acceleration += cohesion;
-            acceleration += alignment;
-            acceleration += separation;
+            var cohesionVec = flockCentre - currentTransform.Position;
+            var alignmentVec = flockVelocity;
+            var separationVec = flockSeparation;
+            
+            float3 desiredDir = (SafeNormalize(cohesionVec) * Config.CohesionWeight) +
+                                (SafeNormalize(alignmentVec) * Config.AlignmentWeight) +
+                                (SafeNormalize(separationVec) * Config.SeparationWeight);
+            
+            acceleration += SteerTowards(desiredDir, currentVelocity.Value, Config.MaxSteerForce);
         }
         
         float3 boundaryDir = CalculateBoundaryForce(currentTransform.Position, Bounds);
         if (math.lengthsq(boundaryDir) > 0)
         {
-            float3 steerForce = SteerTowards(boundaryDir, currentVelocity.Value, Config.MaxSteerForce * 10f); // Allow 10x stronger steering for walls
+            float3 steerForce = SteerTowards(boundaryDir, currentVelocity.Value, Config.MaxSteerForce);
             acceleration += steerForce * Config.BoundaryWeight;
         }
         
         
-        if (HasFlowField && Config.FlowmapWeight > 0.001f)
+        if (HasFlowField && Config.FlowmapWeight > 0.001f && Config.FlowMapEnabled)
         {
             // Sample the field at our current position
             //float3 flowForce = GetFlowFieldForce(currentTransform.Position);
@@ -317,8 +271,15 @@ public partial struct BoidJob : IJobEntity
         currentVelocity.Value += acceleration;
 
         // Limit the final speed
-        currentVelocity.Value = math.clamp(math.length(currentVelocity.Value), Config.MinSpeed, Config.MaxSpeed) *
-                                math.normalizesafe(currentVelocity.Value);
+        float speedSq = math.lengthsq(currentVelocity.Value);
+        if (speedSq > maxSpeedSq)
+        {
+            currentVelocity.Value = math.normalize(currentVelocity.Value) * Config.MaxSpeed;
+        }
+        else if (speedSq < minSpeedSq)
+        {
+            currentVelocity.Value = math.normalize(currentVelocity.Value) * Config.MinSpeed;
+        }
         
         // Explosion force is applied after clamping to allow velocities above maxSpeed
         for (int e = 0; e < Explosions.Length; e++)
@@ -345,13 +306,26 @@ public partial struct BoidJob : IJobEntity
             }
         }
     }
+    
+    private float3 SafeNormalize(float3 v)
+    {
+        float lenSq = math.lengthsq(v);
+        if (lenSq < 0.00001f) return float3.zero;
+        return v * math.rsqrt(lenSq);
+    }
 
     private float3 SteerTowards(float3 vector, float3 velocity, float maxSteer)
     {
         // "vector" is the desired direction/position
         var desired = math.normalizesafe(vector) * Config.MaxSpeed;
         var steer = desired - velocity;
-        return math.normalizesafe(steer) * math.min(math.length(steer), maxSteer);
+        
+        float steerLenSq = math.lengthsq(steer);
+        if (steerLenSq > maxSteer * maxSteer)
+        {
+            return steer * (maxSteer * math.rsqrt(steerLenSq));
+        }
+        return steer;
     }
     
     private float3 SteerTowards(float3 vector, float3 velocity)
@@ -426,41 +400,41 @@ public partial struct BoidJob : IJobEntity
         if (offset.x > extents.x - bounds.PositiveMargins.x)
         {
             float t = (offset.x - (extents.x - bounds.PositiveMargins.x)) / bounds.PositiveMargins.x;
-            desiredVel.x = -1; // Push Left
+            desiredVel.x = -t; // Push Left
         }
         else if (offset.x < -extents.x + bounds.NegativeMargins.x)
         {
             float t = ((-extents.x + bounds.NegativeMargins.x) - offset.x) / bounds.NegativeMargins.x;
-            desiredVel.x = 1; // Push Right
+            desiredVel.x = t; // Push Right
         }
 
         // Y Axis
         if (offset.y > extents.y - bounds.PositiveMargins.y)
         {
-            desiredVel.y = -1; // Push Down
+            float t = (offset.y - (extents.y - bounds.PositiveMargins.y)) / bounds.PositiveMargins.y;
+            desiredVel.y = -t; // Push DOwn
         }
         else if (offset.y < -extents.y + bounds.NegativeMargins.y)
         {
-            desiredVel.y = 1; // Push Up
+            float t = ((-extents.y + bounds.NegativeMargins.y) - offset.y) / bounds.NegativeMargins.y;
+            desiredVel.y = t; // Push Up
         }
 
         // Z Axis
         if (offset.z > extents.z - bounds.PositiveMargins.z)
         {
-            desiredVel.z = -1; // Push Back
+            float t = (offset.z - (extents.z - bounds.PositiveMargins.z)) / bounds.PositiveMargins.z;
+            desiredVel.z = -t; // Push Back
         }
         else if (offset.z < -extents.z + bounds.NegativeMargins.z)
         {
-            desiredVel.z = 1; // Push Forward
+            float t = ((-extents.z + bounds.NegativeMargins.z) - offset.z) / bounds.NegativeMargins.z;
+            desiredVel.z = t; // Push Forward
         }
-        
-        // Normalize so it behaves like a standard steering vector
+    
         if (math.lengthsq(desiredVel) > 0)
         {
-            desiredVel = math.normalize(desiredVel);
-            // We return a vector pointing AWAY from the wall.
-            // The main loop multiplies this by Config.BoundaryWeight
-            return desiredVel;
+            return desiredVel; 
         }
 
         return float3.zero;
