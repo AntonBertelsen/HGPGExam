@@ -29,7 +29,6 @@ public partial struct KdTreeBuilderSystem : ISystem
     {
         var physicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>().CollisionWorld;
         
-        // 1. Get Entities array along with components
         var entities = _landingAreaQuery.ToEntityArray(Allocator.TempJob);
         
         
@@ -117,9 +116,7 @@ public partial struct KdTreeBuilderSystem : ISystem
 
                     if (math.dot(worldNormal, up) >= upThreshold)
                     {
-                        // --- UPDATED CLEARANCE CHECK ---
-                        
-                        // 1. Lift check origin slightly
+                        // Clearance check
                         float3 checkOrigin = pos + (worldNormal * landingArea.ClearanceRadius);
 
                         var input = new PointDistanceInput
@@ -128,26 +125,19 @@ public partial struct KdTreeBuilderSystem : ISystem
                             MaxDistance = landingArea.ClearanceRadius * 0.9f, 
                             Filter = landingArea.ObstacleFilter 
                         };
-
-                        // 2. Use Custom Collector
-                        var collector = new IgnoreSelfCollector(self);
                         
-                        // 3. Run Query
+                        var collector = new IgnoreSelfCollector(self);
+
                         // This iterates through potential hits. 
                         // It calls collector.AddHit(). If AddHit returns true, it stops.
                         collisionWorld.CalculateDistance(input, ref collector);
 
-                        // 4. Check Result
-                        // If FoundHit is true, we hit something that WASN'T us.
                         if (collector.FoundHit)
                         {
                             continue; // Blocked by foreign object
                         }
-                        
-                        // If we are here, we either hit nothing, or only hit ourselves.
+
                         // Valid Spot!
-                        
-                        
                         passingPoints.Add(pos);
                         passingNormals.Add(worldNormal);
                     }
@@ -181,8 +171,6 @@ public partial struct KdTreeBuilderSystem : ISystem
     }
 }
 
-
-// A custom collector that stops at the first hit NOT belonging to a specific entity
 public struct IgnoreSelfCollector : ICollector<DistanceHit>
 {
     private Entity _self;
@@ -194,7 +182,7 @@ public struct IgnoreSelfCollector : ICollector<DistanceHit>
         _self = self;
         FoundHit = false;
         ClosestHit = default;
-        MaxFraction = 1.0f; // Check full distance
+        MaxFraction = 1.0f;
         NumHits = 0;
     }
 
@@ -205,16 +193,13 @@ public struct IgnoreSelfCollector : ICollector<DistanceHit>
 
     public bool AddHit(DistanceHit hit)
     {
-        // THE LOGIC:
-        // If the thing we hit is US, ignore it and return false (keep searching).
         if (hit.Entity == _self)
         {
             return false; 
         }
-
-        // If it's NOT us, we found a valid obstacle!
+        
         ClosestHit = hit;
         FoundHit = true;
-        return true; // Stop searching, we are blocked.
+        return true;
     }
 }

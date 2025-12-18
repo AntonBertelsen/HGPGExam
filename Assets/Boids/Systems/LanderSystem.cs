@@ -73,8 +73,7 @@ public partial struct LanderSystem : ISystem
                 default: throw new ArgumentOutOfRangeException();
             }
         }
-
-        // 2. Cycle Startle Events
+        
         // Clear the old startles and copy the new ones we just collected
         _activeStartles.Clear();
         while (nextFrameStartles.TryDequeue(out var pos))
@@ -98,14 +97,12 @@ public partial struct LanderJob : IJobEntity
 
     [ReadOnly] public NativeArray<float3> IncomingStartles;
     [WriteOnly] public NativeQueue<float3>.ParallelWriter OutgoingStartles;
-
-    // Constants for tuning
+    
     private const float BaseEnergyDepletion = 0.55f;
     private const float BaseEnergyRecovery = 0.65f;
     private const float MaxEnergy = 100.0f;
-
-    // Influence Settings
-    private const float StartleRadius = 6.0f; // Range of influence
+    
+    private const float StartleRadius = 6.0f;
     private const float StartleChanceMultiplier = 1.0f;
 
     private const float DockingDistance = 3.0f;
@@ -182,14 +179,12 @@ public partial struct LanderJob : IJobEntity
             }
             case LanderState.Landed:
             {
-                // --- Startle Logic ---
                 var isStartled = false;
 
                 var startlePersonality = 0.1f + (random.NextFloat() * 0.5f);
 
                 var startleChance = startlePersonality * StartleChanceMultiplier;
-
-                // Optimization: Don't check startles if we are already full energy (we are taking off anyway)
+                
                 if (lander.Energy < MaxEnergy)
                 {
                     // Check if any bird took off near us in the previous frame
@@ -215,7 +210,7 @@ public partial struct LanderJob : IJobEntity
                     lander.Energy += BaseEnergyRecovery * metabolicRate * DeltaTime;
                 }
 
-                // --- Takeoff Logic ---
+                // Takeoff
                 if (lander.Energy >= MaxEnergy)
                 {
                     lander.State = LanderState.Flying;

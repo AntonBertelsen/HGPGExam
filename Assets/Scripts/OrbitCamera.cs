@@ -11,7 +11,7 @@ public class OrbitCameraRig : MonoBehaviour
     public Transform cameraTransform; // the actual Camera (child of this object)
 
     [Header("Orbit Settings")]
-    public float rotationSpeed = 120f; // degrees per second
+    public float rotationSpeed = 120f;
     public float smoothing = 8f;
 
     [Header("Zoom Settings")]
@@ -128,12 +128,10 @@ public class OrbitCameraRig : MonoBehaviour
             isFollowingBird = false;
             return;
         }
-
-        // Pick the first one (or random)
+        
         var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
         if (entities.Length > 0)
         {
-            // Optional: Pick a random one so pressing 'F' repeatedly cycles through them
             int index = UnityEngine.Random.Range(0, entities.Length);
             _followedEntity = entities[index];
         }

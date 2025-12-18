@@ -7,8 +7,6 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-// 1. THE AUTHORING COMPONENT
-// This lives on a GameObject and holds the settings + the baked data (float3 array)
 public class FlowFieldAuthoring : MonoBehaviour
 {
     [Header("Grid Settings")]
@@ -40,14 +38,12 @@ public class FlowFieldAuthoring : MonoBehaviour
     public int SliceYIndex = 5;
     [Tooltip("Skip cells to reduce lag. 1 = Draw All, 2 = Draw Half, etc.")]
     public int ResolutionStep = 2;
-
-    // --- SERIALIZED DATA (The "Saved" Field) ---
-    // We hide this from the inspector because drawing 100k vector fields slows down the UI massively.
+    
+    // hide this from the inspector because it slows down the UI massively.
     [HideInInspector] public float3[] BakedVectors;
     [HideInInspector] public int3 BakedDimensions;
     [HideInInspector] public float3 BakedOrigin;
-
-    // --- THE GENERATION LOGIC ---
+    
     [ContextMenu("Bake Flow Field")]
     public void GenerateField()
     {
@@ -66,11 +62,10 @@ public class FlowFieldAuthoring : MonoBehaviour
         BakedOrigin = transform.position - (GridSize / 2.0f);
 
         Debug.Log($"Baking Flow Field: {dims.x}x{dims.y}x{dims.z} ({totalCells} cells). Estimated Memory: {memoryMB:F2} MB");
-
-        // Temporary collider for ComputePenetration checks
+        
         GameObject tempObj = new GameObject("TempBakerSphere");
         SphereCollider dummyCollider = tempObj.AddComponent<SphereCollider>();
-        dummyCollider.radius = 0.5f; // Assume bird radius approx 0.5m
+        dummyCollider.radius = 0.5f;
         
         for (int z = 0; z < dims.z; z++)
         {
@@ -82,8 +77,7 @@ public class FlowFieldAuthoring : MonoBehaviour
                     
                     float3 cellCenter = BakedOrigin + new float3(x * CellSize, y * CellSize, z * CellSize) + (CellSize * 0.5f);
                     float3 finalVector = float3.zero;
-
-                    // 1. Obstacles (Avoidance)
+                    
                     float checkRadius = Mathf.Max(CellSize, ObstacleRepulsionRadius);
                     Collider[] hits = Physics.OverlapSphere(cellCenter, checkRadius, ObstacleLayers);
                     
@@ -91,53 +85,39 @@ public class FlowFieldAuthoring : MonoBehaviour
                     {
                         Collider hitCol = hits[0]; 
                         
-                        // A. Emergency Exit (Inside Collider)
+                        // Inside Collider check
                         dummyCollider.transform.position = cellCenter;
                         if (Physics.ComputePenetration(dummyCollider, dummyCollider.transform.position, dummyCollider.transform.rotation, 
                             hitCol, hitCol.transform.position, hitCol.transform.rotation, 
                             out Vector3 penDir, out float penDist))
                         {
-                            // Inside! Push out violently.
                             finalVector += (float3)penDir * ObstacleWeight * 2.0f; 
                         }
                         else 
                         {
-                            // B. Proximity Avoidance with TANGENT SLIDE
                             float3 closestPoint = hitCol.ClosestPoint(cellCenter);
                             float dist = math.distance(cellCenter, closestPoint);
 
                             if (dist < checkRadius)
                             {
-                                // 1. Calculate the Normal (Directly away from wall)
                                 float3 normal = math.normalizesafe(cellCenter - closestPoint);
-            
-                                // 2. Calculate the "Up" Tangent
-                                // Use the helper function we defined
                                 float3 upVector = new float3(0, 1, 0);
-                                
-                                // Projecting on plane to extract the upwards tangent
                                 float dot = math.dot(upVector, normal);
                                 float3 tangentUp = math.normalizesafe(upVector - (normal * dot));
-
-                                // 3. Blend them
-                                // If we are very close, use more Normal (Push away).
-                                // If we are further out, use more Tangent (Slide along/up).
+                                
                                 float strength = 1.0f - (dist / checkRadius);
-            
-                                // Blend: 40% Push Out, 60% Slide Up.
+                                
                                 float3 slideForce = math.lerp(normal, tangentUp, 0.6f);
 
                                 finalVector += slideForce * strength * ObstacleWeight;
                             }
                         }
                     }
-
-                    // 2. Terrain & Buildings (SphereCast)
+                    
                     if (Physics.SphereCast(cellCenter, CellSize, Vector3.down, out RaycastHit hit, 2000f, TerrainLayers))
                     {
                         float altitude = hit.distance;
                         
-                        // Push UP
                         if (altitude < MinAltitude)
                         {
                             float pushStrength = 1.0f - (altitude / MinAltitude);
@@ -146,7 +126,6 @@ public class FlowFieldAuthoring : MonoBehaviour
 
                             finalVector += surfaceNormal * pushStrength * TerrainWeight;
                         }
-                        // Push DOWN (Soft Ceiling)
                         else if (altitude > MaxAltitude)
                         {
                             float distOver = altitude - MaxAltitude;
@@ -154,8 +133,7 @@ public class FlowFieldAuthoring : MonoBehaviour
                             finalVector += new float3(0, -1, 0) * pushStrength * (TerrainWeight * 0.5f);
                         }
                     }
-
-                    // 3. Paths
+                    
                     if (PathWaypoints != null && PathWaypoints.Count > 1)
                     {
                         for (int i = 0; i < PathWaypoints.Count - 1; i++)
@@ -204,7 +182,7 @@ public class FlowFieldAuthoring : MonoBehaviour
         int3 dims = BakedDimensions;
         float3 origin = BakedOrigin;
         
-        // --- LOD LOGIC ---
+        // LOD logic for performance in scene view
 #if UNITY_EDITOR
         Camera cam = SceneView.currentDrawingSceneView?.camera;
         Vector3 camPos = cam ? cam.transform.position : transform.position;
@@ -221,8 +199,7 @@ public class FlowFieldAuthoring : MonoBehaviour
                 for (int x = 0; x < dims.x; x++)
                 {
                     float3 cellCenter = origin + new float3(x * CellSize, y * CellSize, z * CellSize) + (CellSize * 0.5f);
-
-                    // Distance Culling (LOD)
+                    
                     float distToCam = Vector3.Distance(camPos, cellCenter);
                     int step = 1;
                     if (distToCam > 50f) step = 2;
@@ -241,7 +218,6 @@ public class FlowFieldAuthoring : MonoBehaviour
                     {
                         float magnitude = math.sqrt(forceLenSq);
                         
-                        // Color coding
                         Vector3 col = new Vector3(Mathf.Abs(force.x), Mathf.Abs(force.y), Mathf.Abs(force.z));
                         float maxC = Mathf.Max(col.x, Mathf.Max(col.y, col.z));
                         if(maxC > 0) col /= maxC;
@@ -277,8 +253,6 @@ public class FlowFieldAuthoring : MonoBehaviour
     }
 }
 
-// 2. THE BAKER (Converts Authoring Data to ECS Blob)
-// This runs once when the subscene is processed.
 public class FlowFieldBaker : Baker<FlowFieldAuthoring>
 {
     public override void Bake(FlowFieldAuthoring authoring)

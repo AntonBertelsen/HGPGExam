@@ -8,8 +8,6 @@ using Unity.Rendering;
 using Unity.Transforms;
 using UnityEngine.Rendering;
 
-// A managed component that will exist on a single entity (a singleton)
-// to hold our mapping from Mesh objects to their registered BatchMeshIDs.
 public class LODMeshMappingSingleton : IComponentData
 {
     public Dictionary<Mesh, BatchMeshID> MeshMapping;
@@ -21,11 +19,10 @@ public struct CameraPositionSingleton : IComponentData
 }
 
 [UpdateInGroup(typeof(InitializationSystemGroup))]
-public partial class CameraPositionUpdateSystem : SystemBase
+public partial class CameraPositionUpdateSystem : SystemBase // SystemBase instead of ISystem because it interacts with teh managed world, so we can easily reference the camera gameobject
 {
     protected override void OnCreate()
     {
-        // Create an entity to act as the singleton
         EntityManager.CreateEntity(typeof(CameraPositionSingleton));
     }
 
@@ -33,8 +30,7 @@ public partial class CameraPositionUpdateSystem : SystemBase
     {
         var camera = Camera.main;
         if (camera == null) return;
-
-        // Update the singleton's data
+        
         SystemAPI.SetSingleton(new CameraPositionSingleton
         {
             CameraTransform = new LocalToWorld { Value = camera.transform.localToWorldMatrix }
@@ -46,8 +42,7 @@ public partial class CameraPositionUpdateSystem : SystemBase
 public partial struct LODSystem_WithJob : ISystem
 {
     private bool m_IsInitialized;
-
-    // The system now stores all the data the job will need.
+    
     private BatchMeshID m_LOD0_ID;
     private BatchMeshID m_LOD1_ID;
     private BatchMeshID m_LOD2_ID;
@@ -88,7 +83,6 @@ public partial struct LODSystem_WithJob : ISystem
             LOD3DistanceSq = boidSettings.LOD3Distance * boidSettings.LOD3Distance
         };
         
-        // The job will run on all entities with the ApplyLOD tag.
         if (boidSettings.UseParallel)
         {
             var jobHandle = lodJob.ScheduleParallel(state.Dependency);
@@ -112,7 +106,6 @@ public partial struct LODSystem_WithJob : ISystem
         RegisterMesh(hybridRenderer, mapping, lodConfig.MeshLOD2);
         RegisterMesh(hybridRenderer, mapping, lodConfig.MeshLOD3);
 
-        // Store the pre-calculated data in the system's fields.
         system.m_LOD0_ID = mapping[lodConfig.MeshLOD0];
         system.m_LOD1_ID = mapping[lodConfig.MeshLOD1];
         system.m_LOD2_ID = mapping[lodConfig.MeshLOD2];
@@ -128,7 +121,6 @@ public partial struct LODSystem_WithJob : ISystem
     }
 }
 
-// The job is now simpler, as it doesn't need to read settings from the entity.
 [BurstCompile]
 public partial struct LODJob : IJobEntity
 {
@@ -140,8 +132,7 @@ public partial struct LODJob : IJobEntity
     [ReadOnly] public float LOD1DistanceSq;
     [ReadOnly] public float LOD2DistanceSq;
     [ReadOnly] public float LOD3DistanceSq;
-
-    // The Execute method now only needs the tag, transform, and the MMI to change.
+    
     public void Execute(in SimpleLODTag tag, in LocalToWorld transform, ref MaterialMeshInfo mmi)
     {
         float distSq = math.distancesq(CameraPosition, transform.Position);

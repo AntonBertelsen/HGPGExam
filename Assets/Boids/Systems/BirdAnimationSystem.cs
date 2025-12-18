@@ -17,7 +17,6 @@ public partial struct BirdAnimationSystem : ISystem
 
     public void OnUpdate(ref SystemState state)
     {
-        // Pass global time for the wave functions
         var time = (float)SystemAPI.Time.ElapsedTime;
         var deltaTime = SystemAPI.Time.DeltaTime;
 

@@ -73,7 +73,6 @@ public partial struct TurretJob : IJobEntity
                          ref TurretComponent turret, 
                          ref LocalTransform transform)
     {
-        // 1. Randomness (Replaces System.Random)
         var random = Random.CreateFromIndex(CurrentTime ^ (uint)sortKey);
         turret.frameCounter += random.NextInt(1, 5);
 

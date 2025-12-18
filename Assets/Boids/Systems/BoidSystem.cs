@@ -358,14 +358,11 @@ public partial struct BoidJob : IJobEntity
     {
         return SteerTowards(vector, velocity, Config.MaxSteerForce);
     }
-
-    // --- TRILINEAR INTERPOLATION SAMPLING ---
+    
     private float3 GetFlowFieldForce(float3 position)
     {
-        // 1. Convert world position to grid space (0.0 to Dimensions)
         float3 localPos = (position - FlowField.GridOrigin) / FlowField.CellSize;
-
-        // 2. Check bounds - if outside the baked area, return zero force
+        
         if (localPos.x < 0 || localPos.y < 0 || localPos.z < 0 ||
             localPos.x >= FlowField.GridDimensions.x - 1 ||
             localPos.y >= FlowField.GridDimensions.y - 1 ||
@@ -374,11 +371,11 @@ public partial struct BoidJob : IJobEntity
             return float3.zero;
         }
 
-        // 3. Get the bottom-left corner index (Integer part)
+        // Bottom-left corner index
         int3 c000 = (int3)math.floor(localPos);
         int3 c111 = c000 + 1;
 
-        // 4. Calculate fractional weights (0.0 to 1.0) for interpolation
+        // Fractional weights (0.0 to 1.0) for interpolation
         float3 w = localPos - c000;
         float3 invW = 1.0f - w;
 
@@ -388,7 +385,7 @@ public partial struct BoidJob : IJobEntity
         // Helper to get flat index safely
         int GetIdx(int x, int y, int z) => x + y * gridDimensionX + z * gridDimensionX * gridDimensionY;
 
-        // 5. Sample the 8 neighbor vectors
+        // Sample the 8 neighbor vectors
         // x/y/z correspond to 0 or 1 offsets
         float3 v000 = FlowField.Blob.Value.Vectors[GetIdx(c000.x, c000.y, c000.z)];
         float3 v100 = FlowField.Blob.Value.Vectors[GetIdx(c111.x, c000.y, c000.z)];
@@ -399,8 +396,7 @@ public partial struct BoidJob : IJobEntity
         float3 v101 = FlowField.Blob.Value.Vectors[GetIdx(c111.x, c000.y, c111.z)];
         float3 v011 = FlowField.Blob.Value.Vectors[GetIdx(c000.x, c111.y, c111.z)];
         float3 v111 = FlowField.Blob.Value.Vectors[GetIdx(c111.x, c111.y, c111.z)];
-
-        // 6. Trilinear Blend
+        
         // Blend along X
         float3 x00 = v000 * invW.x + v100 * w.x;
         float3 x10 = v010 * invW.x + v110 * w.x;
@@ -411,7 +407,7 @@ public partial struct BoidJob : IJobEntity
         float3 y0 = x00 * invW.y + x10 * w.y;
         float3 y1 = x01 * invW.y + x11 * w.y;
 
-        // Blend along Z (Final result)
+        // Blend along Z
         return y0 * invW.z + y1 * w.z;
     }
 
